@@ -95,4 +95,42 @@ export class UserService {
       throw new NotFoundException('User not found');
     }
   }
+
+  async findByEmail(email: string): Promise<User | null> {
+    return this.prisma.user.findUnique({ where: { email } });
+  }
+
+  async findByResetToken(resetToken: string): Promise<User | null> {
+    return this.prisma.user.findUnique({ where: { resetToken } as any });
+  }
+
+  async updateResetToken(id: number, resetToken: string, resetTokenExpiry: Date): Promise<void> {
+    await this.prisma.user.update({
+      where: { id },
+      data: {
+        resetToken,
+        resetTokenExpiry,
+      } as any,
+    });
+  }
+
+  async updatePassword(id: number, newPassword: string): Promise<void> {
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await this.prisma.user.update({
+      where: { id },
+      data: {
+        password: hashedPassword,
+      },
+    });
+  }
+
+  async clearResetToken(id: number): Promise<void> {
+    await this.prisma.user.update({
+      where: { id },
+      data: {
+        resetToken: null,
+        resetTokenExpiry: null,
+      } as any,
+    });
+  }
 }

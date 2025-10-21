@@ -6,6 +6,8 @@ export interface User {
   firstName?: string | null;
   lastName?: string | null;
   isActive: boolean;
+  resetToken?: string | null;
+  resetTokenExpiry?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
