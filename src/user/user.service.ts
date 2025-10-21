@@ -21,11 +21,10 @@ export class UserService {
       throw new ConflictException('User with this email or username already exists');
     }
 
-    if (!userData.password) {
-      throw new Error('Password is required');
+    let hashedPassword: string | null = null;
+    if (userData.password) {
+      hashedPassword = await bcrypt.hash(userData.password, 10);
     }
-
-    const hashedPassword = await bcrypt.hash(userData.password, 10);
     
     return this.prisma.user.create({
       data: {
@@ -130,6 +129,38 @@ export class UserService {
       data: {
         resetToken: null,
         resetTokenExpiry: null,
+      } as any,
+    });
+  }
+
+  async findByGoogleId(googleId: string): Promise<User | null> {
+    return this.prisma.user.findUnique({ where: { googleId } as any });
+  }
+
+  async createGoogleUser(userData: {
+    email: string;
+    firstName?: string;
+    lastName?: string;
+    googleId: string;
+    avatar?: string;
+    provider: string;
+    username: string;
+  }): Promise<User> {
+    return this.prisma.user.create({
+      data: {
+        ...userData,
+        isActive: true,
+      } as any,
+    });
+  }
+
+  async linkGoogleAccount(userId: number, googleId: string, avatar?: string): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        googleId,
+        avatar,
+        provider: 'google',
       } as any,
     });
   }

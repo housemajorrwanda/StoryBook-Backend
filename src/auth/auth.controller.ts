@@ -1,5 +1,6 @@
-import { Controller, Post, Body, UseGuards, Get, Request } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { Controller, Post, Body, UseGuards, Get, Request, Res, HttpStatus } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiExcludeEndpoint } from '@nestjs/swagger';
+import type { Response } from 'express';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -7,6 +8,7 @@ import { AuthResponseDto } from './dto/auth-response.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { GoogleAuthGuard } from './guards/google-auth.guard';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -85,5 +87,51 @@ export class AuthController {
   })
   async resetPassword(@Body() resetPasswordDto: ResetPasswordDto): Promise<{ message: string }> {
     return this.authService.resetPassword(resetPasswordDto);
+  }
+
+  @Get('google')
+  @UseGuards(GoogleAuthGuard)
+  @ApiOperation({ summary: 'Initiate Google OAuth login' })
+  @ApiResponse({ 
+    status: 302, 
+    description: 'Redirects to Google OAuth consent screen'
+  })
+  async googleAuth(@Request() req) {
+    // This endpoint initiates Google OAuth flow
+    // The actual logic is handled by GoogleAuthGuard
+  }
+
+  @Get('google/callback')
+  @UseGuards(GoogleAuthGuard)
+  @ApiExcludeEndpoint() // Hide from Swagger as it's a callback URL
+  async googleAuthRedirect(@Request() req, @Res() res: Response) {
+    try {
+      const authResult = req.user;
+      
+      // In production, redirect to your frontend with the token
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const redirectUrl = `${frontendUrl}/auth/success?token=${authResult.access_token}`;
+      
+      return res.redirect(redirectUrl);
+    } catch (error) {
+      console.error('Google OAuth callback error:', error);
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const errorUrl = `${frontendUrl}/auth/error?message=Authentication failed`;
+      
+      return res.redirect(errorUrl);
+    }
+  }
+
+  @Get('google/success')
+  @ApiOperation({ summary: 'Google OAuth success endpoint (for testing)' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Returns authentication result for successful Google OAuth'
+  })
+  async googleAuthSuccess(@Request() req) {
+    return {
+      message: 'Google authentication successful',
+      user: req.user,
+    };
   }
 }

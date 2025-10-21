@@ -33,7 +33,7 @@ export class AuthService {
   async login(loginDto: LoginDto): Promise<AuthResponseDto> {
     const user = await this.userService.findByUsername(loginDto.username);
     
-    if (!user || !await this.userService.validatePassword(loginDto.password, user.password)) {
+    if (!user || !user.password || !await this.userService.validatePassword(loginDto.password, user.password)) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
@@ -103,5 +103,59 @@ export class AuthService {
     await this.userService.clearResetToken(user.id);
 
     return { message: 'Password has been successfully reset' };
+  }
+
+  async validateGoogleUser(googleUser: any): Promise<any> {
+    try {
+      // Check if user already exists with this Google ID
+      let user = await this.userService.findByGoogleId(googleUser.googleId);
+      
+      if (user) {
+        // Update user info if needed
+        return this.generateAuthResponse(user);
+      }
+
+      // Check if user exists with this email (linking accounts)
+      user = await this.userService.findByEmail(googleUser.email);
+      
+      if (user) {
+        // Link Google account to existing user
+        await this.userService.linkGoogleAccount(user.id, googleUser.googleId, googleUser.avatar);
+        return this.generateAuthResponse(user);
+      }
+
+      // Create new user with Google account
+      const newUser = await this.userService.createGoogleUser({
+        email: googleUser.email,
+        firstName: googleUser.firstName,
+        lastName: googleUser.lastName,
+        googleId: googleUser.googleId,
+        avatar: googleUser.avatar,
+        provider: 'google',
+        username: this.generateUsernameFromEmail(googleUser.email),
+      });
+
+      return this.generateAuthResponse(newUser);
+    } catch (error) {
+      console.error('Google OAuth validation error:', error);
+      throw new UnauthorizedException('Google authentication failed');
+    }
+  }
+
+  private generateAuthResponse(user: any): AuthResponseDto {
+    const { password, resetToken, resetTokenExpiry, ...userWithoutSensitiveData } = user;
+    const payload = { username: user.username, sub: user.id };
+    const access_token = this.jwtService.sign(payload);
+
+    return {
+      access_token,
+      user: userWithoutSensitiveData,
+    };
+  }
+
+  private generateUsernameFromEmail(email: string): string {
+    const baseUsername = email.split('@')[0];
+    const randomSuffix = Math.random().toString(36).substring(2, 8);
+    return `${baseUsername}_${randomSuffix}`;
   }
 }
