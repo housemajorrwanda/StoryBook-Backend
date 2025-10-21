@@ -1,4 +1,5 @@
 import { Controller, Post, Body, UseGuards, Get, Request, Res, HttpStatus } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiExcludeEndpoint } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { AuthService } from './auth.service';
@@ -16,6 +17,7 @@ export class AuthController {
   constructor(private authService: AuthService) {}
 
   @Post('register')
+  @Throttle({ default: { limit: 3, ttl: 60000 } }) // 3 requests per minute
   @ApiOperation({ summary: 'Register a new user' })
   @ApiResponse({ 
     status: 201, 
@@ -26,11 +28,16 @@ export class AuthController {
     status: 409, 
     description: 'User with this email or username already exists'
   })
+  @ApiResponse({ 
+    status: 429, 
+    description: 'Too many requests'
+  })
   async register(@Body() registerDto: RegisterDto): Promise<AuthResponseDto> {
     return this.authService.register(registerDto);
   }
 
   @Post('login')
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 requests per minute
   @ApiOperation({ summary: 'Login user' })
   @ApiResponse({ 
     status: 200, 
@@ -40,6 +47,10 @@ export class AuthController {
   @ApiResponse({ 
     status: 401, 
     description: 'Invalid credentials'
+  })
+  @ApiResponse({ 
+    status: 429, 
+    description: 'Too many requests'
   })
   async login(@Body() loginDto: LoginDto): Promise<AuthResponseDto> {
     return this.authService.login(loginDto);
@@ -62,6 +73,7 @@ export class AuthController {
   }
 
   @Post('forgot-password')
+  @Throttle({ default: { limit: 3, ttl: 300000 } }) // 3 requests per 5 minutes
   @ApiOperation({ summary: 'Request password reset' })
   @ApiResponse({ 
     status: 200, 
@@ -71,11 +83,16 @@ export class AuthController {
     status: 400, 
     description: 'Invalid email format'
   })
+  @ApiResponse({ 
+    status: 429, 
+    description: 'Too many requests'
+  })
   async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto): Promise<{ message: string }> {
     return this.authService.forgotPassword(forgotPasswordDto);
   }
 
   @Post('reset-password')
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 requests per minute
   @ApiOperation({ summary: 'Reset password using token' })
   @ApiResponse({ 
     status: 200, 
@@ -84,6 +101,10 @@ export class AuthController {
   @ApiResponse({ 
     status: 400, 
     description: 'Invalid or expired reset token'
+  })
+  @ApiResponse({ 
+    status: 429, 
+    description: 'Too many requests'
   })
   async resetPassword(@Body() resetPasswordDto: ResetPasswordDto): Promise<{ message: string }> {
     return this.authService.resetPassword(resetPasswordDto);
@@ -108,15 +129,35 @@ export class AuthController {
     try {
       const authResult = req.user;
       
+      if (!authResult || !authResult.access_token) {
+        throw new Error('No authentication result received');
+      }
+      
       // In production, redirect to your frontend with the token
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
       const redirectUrl = `${frontendUrl}/auth/success?token=${authResult.access_token}`;
       
       return res.redirect(redirectUrl);
-    } catch (error) {
-      console.error('Google OAuth callback error:', error);
+    } catch (error: any) {
+      console.error('Google OAuth callback error:', {
+        message: error?.message,
+        status: error?.status,
+        name: error?.name,
+      });
+      
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-      const errorUrl = `${frontendUrl}/auth/error?message=Authentication failed`;
+      
+      // Provide more specific error messages
+      let errorMessage = 'Authentication failed';
+      if (error?.status === 409) {
+        errorMessage = 'Account already exists with different provider';
+      } else if (error?.status === 400) {
+        errorMessage = 'Invalid authentication data';
+      } else if (error?.message) {
+        errorMessage = encodeURIComponent(error.message);
+      }
+      
+      const errorUrl = `${frontendUrl}/auth/error?message=${errorMessage}`;
       
       return res.redirect(errorUrl);
     }

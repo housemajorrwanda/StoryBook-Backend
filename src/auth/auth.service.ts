@@ -107,11 +107,17 @@ export class AuthService {
 
   async validateGoogleUser(googleUser: any): Promise<any> {
     try {
+      // Validate required Google user data
+      if (!googleUser?.email || !googleUser?.googleId) {
+        console.error('Invalid Google user data:', { hasEmail: !!googleUser?.email, hasGoogleId: !!googleUser?.googleId });
+        throw new BadRequestException('Invalid Google user data received');
+      }
+
       // Check if user already exists with this Google ID
       let user = await this.userService.findByGoogleId(googleUser.googleId);
       
       if (user) {
-        // Update user info if needed
+        // User exists with Google ID - return auth response
         return this.generateAuthResponse(user);
       }
 
@@ -120,24 +126,54 @@ export class AuthService {
       
       if (user) {
         // Link Google account to existing user
-        await this.userService.linkGoogleAccount(user.id, googleUser.googleId, googleUser.avatar);
-        return this.generateAuthResponse(user);
+        try {
+          await this.userService.linkGoogleAccount(user.id, googleUser.googleId, googleUser.avatar);
+          // Fetch updated user
+          user = await this.userService.findById(user.id);
+          return this.generateAuthResponse(user);
+        } catch (linkError: any) {
+          console.error('Error linking Google account:', linkError);
+          if (linkError.status === 409) {
+            throw linkError; // Re-throw ConflictException
+          }
+          throw new UnauthorizedException('Failed to link Google account');
+        }
       }
 
       // Create new user with Google account
-      const newUser = await this.userService.createGoogleUser({
-        email: googleUser.email,
-        firstName: googleUser.firstName,
-        lastName: googleUser.lastName,
-        googleId: googleUser.googleId,
-        avatar: googleUser.avatar,
-        provider: 'google',
-        username: this.generateUsernameFromEmail(googleUser.email),
-      });
+      try {
+        const newUser = await this.userService.createGoogleUser({
+          email: googleUser.email,
+          firstName: googleUser.firstName,
+          lastName: googleUser.lastName,
+          googleId: googleUser.googleId,
+          avatar: googleUser.avatar,
+          provider: 'google',
+          username: this.generateUsernameFromEmail(googleUser.email),
+        });
 
-      return this.generateAuthResponse(newUser);
-    } catch (error) {
-      console.error('Google OAuth validation error:', error);
+        return this.generateAuthResponse(newUser);
+      } catch (createError: any) {
+        console.error('Error creating Google user:', createError);
+        if (createError.status === 409) {
+          throw createError; // Re-throw ConflictException
+        }
+        throw new UnauthorizedException('Failed to create user from Google account');
+      }
+    } catch (error: any) {
+      // Log the full error for debugging
+      console.error('Google OAuth validation error:', {
+        message: error.message,
+        status: error.status,
+        name: error.name,
+      });
+      
+      // Re-throw known HTTP exceptions
+      if (error.status) {
+        throw error;
+      }
+      
+      // Throw generic unauthorized for unknown errors
       throw new UnauthorizedException('Google authentication failed');
     }
   }
