@@ -5,7 +5,6 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
-// import { GoogleStrategy } from './strategies/google.strategy'; // Uncomment after installing passport-google-oauth20
 import { UserModule } from '../user/user.module';
 import { EmailModule } from '../email/email.module';
 
@@ -28,7 +27,6 @@ import { EmailModule } from '../email/email.module';
   providers: [
     AuthService, 
     JwtStrategy,
-    // GoogleStrategy, // Uncomment after installing passport-google-oauth20
   ],
   controllers: [AuthController],
   exports: [AuthService],

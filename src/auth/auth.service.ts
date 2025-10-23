@@ -68,7 +68,7 @@ export class AuthService {
 
     // Generate secure reset token
     const resetToken = crypto.randomBytes(32).toString('hex');
-    const resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour from now
+    const resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000); 
 
     // Save reset token to user
     await this.userService.updateResetToken(user.id, resetToken, resetTokenExpiry);
@@ -77,7 +77,6 @@ export class AuthService {
     try {
       await this.emailService.sendPasswordResetEmail(email, resetToken);
     } catch (error) {
-      // Log error but don't expose it to user
       console.error('Failed to send reset email:', error);
     }
 
@@ -134,7 +133,7 @@ export class AuthService {
         } catch (linkError: any) {
           console.error('Error linking Google account:', linkError);
           if (linkError.status === 409) {
-            throw linkError; // Re-throw ConflictException
+            throw linkError; 
           }
           throw new UnauthorizedException('Failed to link Google account');
         }
@@ -156,7 +155,7 @@ export class AuthService {
       } catch (createError: any) {
         console.error('Error creating Google user:', createError);
         if (createError.status === 409) {
-          throw createError; // Re-throw ConflictException
+          throw createError; 
         }
         throw new UnauthorizedException('Failed to create user from Google account');
       }

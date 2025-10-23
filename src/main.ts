@@ -6,17 +6,14 @@ import { ValidationPipe } from '@nestjs/common';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   
-  // Enable CORS for frontend integration
   app.enableCors();
   
-  // Global validation pipe
   app.useGlobalPipes(new ValidationPipe({
     whitelist: true,
     forbidNonWhitelisted: true,
     transform: true,
   }));
   
-  // Swagger configuration
   const config = new DocumentBuilder()
     .setTitle('HouseMajor API')
     .setDescription('The HouseMajor microservice API documentation')

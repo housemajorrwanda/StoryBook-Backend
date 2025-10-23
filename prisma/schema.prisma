@@ -14,21 +14,97 @@ datasource db {
 }
 
 model User {
-  id                Int      @id @default(autoincrement())
-  email             String   @unique
-  username          String   @unique
-  password          String?  // Make password optional for Google OAuth users
+  id                Int          @id @default(autoincrement())
+  email             String       @unique
+  username          String       @unique
+  password          String?      // Make password optional for Google OAuth users
   firstName         String?
   lastName          String?
-  isActive          Boolean  @default(true)
-  resetToken        String?  @unique
+  isActive          Boolean      @default(true)
+  resetToken        String?      @unique
   resetTokenExpiry  DateTime?
   // Google OAuth fields
-  googleId          String?  @unique
-  avatar            String?  // Profile picture URL
-  provider          String   @default("local") // "local" or "google"
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
+  googleId          String?      @unique
+  avatar            String?      // Profile picture URL
+  provider          String       @default("local") // "local" or "google"
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  
+  // Relations
+  testimonies       Testimony[]
+  
   @@map("users")
+}
+
+model Testimony {
+  id                    Int      @id @default(autoincrement())
+  
+  // Submission Type: written, audio, video
+  submissionType        String
+  
+  // Identity Preference: public, anonymous
+  identityPreference    String
+  
+  // Personal Information
+  fullName              String?
+  relationToEvent       String?  // e.g., "Survivor", "Witness", "Family Member", "Friend"
+  nameOfRelative        String?  // Optional
+  location              String?
+  dateOfEvent           DateTime?
+  
+  // Event Information
+  eventTitle            String
+  eventDescription      String?
+  
+  // Written Testimony (only for written type)
+  fullTestimony         String?  @db.Text
+  
+  // Audio (for audio type)
+  audioUrl              String?
+  audioFileName         String?
+  audioDuration         Int?     // Duration in seconds
+  
+  // Video (for video type)
+  videoUrl              String?
+  videoFileName         String?
+  videoDuration         Int?     // Duration in seconds
+  
+  // Images (optional for all types)
+  images                TestimonyImage[]
+  
+  // Consent
+  agreedToTerms         Boolean  @default(false)
+  
+  // Status and metadata
+  status                String   @default("pending") // pending, approved, rejected
+  isPublished           Boolean  @default(false)
+  
+  // Relations
+  userId                Int
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@map("testimonies")
+  @@index([userId])
+  @@index([submissionType])
+  @@index([status])
+}
+
+model TestimonyImage {
+  id                Int        @id @default(autoincrement())
+  imageUrl          String
+  imageFileName     String
+  description       String?
+  order             Int        @default(0)
+  
+  testimonyId       Int
+  testimony         Testimony  @relation(fields: [testimonyId], references: [id], onDelete: Cascade)
+  
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  @@map("testimony_images")
+  @@index([testimonyId])
 }

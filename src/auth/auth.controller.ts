@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Get, Request, Res, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Get, Request, Res } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiExcludeEndpoint } from '@nestjs/swagger';
 import type { Response } from 'express';
@@ -17,7 +17,7 @@ export class AuthController {
   constructor(private authService: AuthService) {}
 
   @Post('register')
-  @Throttle({ default: { limit: 3, ttl: 60000 } }) // 3 requests per minute
+  @Throttle({ default: { limit: 3, ttl: 60000 } }) 
   @ApiOperation({ summary: 'Register a new user' })
   @ApiResponse({ 
     status: 201, 
@@ -37,7 +37,7 @@ export class AuthController {
   }
 
   @Post('login')
-  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 requests per minute
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) 
   @ApiOperation({ summary: 'Login user' })
   @ApiResponse({ 
     status: 200, 
@@ -73,7 +73,7 @@ export class AuthController {
   }
 
   @Post('forgot-password')
-  @Throttle({ default: { limit: 3, ttl: 300000 } }) // 3 requests per 5 minutes
+  @Throttle({ default: { limit: 3, ttl: 300000 } }) 
   @ApiOperation({ summary: 'Request password reset' })
   @ApiResponse({ 
     status: 200, 
@@ -92,7 +92,7 @@ export class AuthController {
   }
 
   @Post('reset-password')
-  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 requests per minute
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) 
   @ApiOperation({ summary: 'Reset password using token' })
   @ApiResponse({ 
     status: 200, 
@@ -117,14 +117,10 @@ export class AuthController {
     status: 302, 
     description: 'Redirects to Google OAuth consent screen'
   })
-  async googleAuth(@Request() req) {
-    // This endpoint initiates Google OAuth flow
-    // The actual logic is handled by GoogleAuthGuard
-  }
 
   @Get('google/callback')
   @UseGuards(GoogleAuthGuard)
-  @ApiExcludeEndpoint() // Hide from Swagger as it's a callback URL
+  @ApiExcludeEndpoint() 
   async googleAuthRedirect(@Request() req, @Res() res: Response) {
     try {
       const authResult = req.user;
