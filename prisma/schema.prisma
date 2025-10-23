@@ -76,8 +76,14 @@ model Testimony {
   agreedToTerms         Boolean  @default(false)
   
   // Status and metadata
-  status                String   @default("pending") // pending, approved, rejected
+  status                String   @default("pending") // pending, approved, rejected, reported, feedback_requested
   isPublished           Boolean  @default(false)
+  
+  // Admin actions
+  adminFeedback         String?  @db.Text // Feedback from admin
+  reportReason          String?  @db.Text // Reason for reporting
+  reviewedBy            Int?     // Admin who reviewed
+  reviewedAt            DateTime? // When it was reviewed
   
   // Relations
   userId                Int

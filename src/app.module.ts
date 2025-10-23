@@ -8,6 +8,7 @@ import { AuthModule } from './auth/auth.module';
 import { UserModule } from './user/user.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { TestimonyModule } from './testimony/testimony.module';
+import { UploadModule } from './upload/upload.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { TestimonyModule } from './testimony/testimony.module';
     AuthModule,
     UserModule,
     TestimonyModule,
+    UploadModule,
   ],
   controllers: [AppController],
   providers: [

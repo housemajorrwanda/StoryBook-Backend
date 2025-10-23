@@ -227,4 +227,120 @@ export class TestimonyController {
   async togglePublish(@Param('id', ParseIntPipe) id: number, @Request() req) {
     return this.testimonyService.togglePublish(id, req.user.userId);
   }
+
+  @Post(':id/approve')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Approve testimony (admin only)' })
+  @ApiParam({ name: 'id', type: Number })
+  @ApiResponse({
+    status: 200,
+    description: 'Testimony approved successfully',
+    type: TestimonyResponseDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Testimony not found',
+  })
+  async approveTestimony(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req,
+    @Body('feedback') feedback?: string,
+  ) {
+    return this.testimonyService.approveTestimony(id, req.user.userId, feedback);
+  }
+
+  @Post(':id/reject')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Reject testimony (admin only)' })
+  @ApiParam({ name: 'id', type: Number })
+  @ApiResponse({
+    status: 200,
+    description: 'Testimony rejected successfully',
+    type: TestimonyResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - reason is required',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Testimony not found',
+  })
+  async rejectTestimony(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req,
+    @Body('reason') reason: string,
+  ) {
+    return this.testimonyService.rejectTestimony(id, req.user.userId, reason);
+  }
+
+  @Post(':id/report')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Report testimony (admin only)' })
+  @ApiParam({ name: 'id', type: Number })
+  @ApiResponse({
+    status: 200,
+    description: 'Testimony reported successfully',
+    type: TestimonyResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - reason is required',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Testimony not found',
+  })
+  async reportTestimony(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req,
+    @Body('reason') reason: string,
+  ) {
+    return this.testimonyService.reportTestimony(id, req.user.userId, reason);
+  }
+
+  @Post(':id/request-feedback')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Request feedback from user (admin only)' })
+  @ApiParam({ name: 'id', type: Number })
+  @ApiResponse({
+    status: 200,
+    description: 'Feedback requested successfully',
+    type: TestimonyResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - message is required',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Testimony not found',
+  })
+  async requestFeedback(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req,
+    @Body('message') message: string,
+  ) {
+    return this.testimonyService.requestFeedback(id, req.user.userId, message);
+  }
 }
