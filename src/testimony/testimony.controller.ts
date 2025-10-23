@@ -33,9 +33,7 @@ export class TestimonyController {
   constructor(private readonly testimonyService: TestimonyService) {}
 
   @Post()
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Create a new testimony' })
+  @ApiOperation({ summary: 'Create a new testimony (authentication optional)' })
   @ApiResponse({
     status: 201,
     description: 'Testimony created successfully',
@@ -45,12 +43,10 @@ export class TestimonyController {
     status: 400,
     description: 'Bad request - validation failed',
   })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized',
-  })
   async create(@Request() req, @Body() createTestimonyDto: CreateTestimonyDto) {
-    return this.testimonyService.create(req.user.userId, createTestimonyDto);
+    // Allow both authenticated and anonymous submissions
+    const userId = req.user?.userId || null;
+    return this.testimonyService.create(userId, createTestimonyDto);
   }
 
   @Get()

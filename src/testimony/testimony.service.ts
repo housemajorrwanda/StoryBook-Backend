@@ -13,8 +13,9 @@ import { UpdateTestimonyDto } from './dto/update-testimony.dto';
 export class TestimonyService {
   constructor(private prisma: PrismaService) {}
 
-  async create(userId: number, createTestimonyDto: CreateTestimonyDto) {
-    if (!userId || userId <= 0) {
+  async create(userId: number | null, createTestimonyDto: CreateTestimonyDto) {
+    // Allow anonymous submissions (userId can be null)
+    if (userId !== null && userId <= 0) {
       throw new BadRequestException('Invalid user ID');
     }
 
