@@ -52,10 +52,23 @@ export class TestimonyService {
       return testimony;
     } catch (error: any) {
       console.error('Error creating testimony:', error);
-      if (error.code === 'P2003') {
-        throw new BadRequestException('Invalid user ID');
+      
+      // Re-throw HTTP exceptions (like BadRequestException from validation)
+      if (error.status) {
+        throw error;
       }
-      throw new InternalServerErrorException('Failed to create testimony');
+      
+      // Handle Prisma errors
+      if (error.code === 'P2003') {
+        throw new BadRequestException('Invalid user ID - user does not exist');
+      }
+      if (error.code === 'P2002') {
+        throw new BadRequestException('A testimony with this data already exists');
+      }
+      
+      // Log the actual error for debugging
+      console.error('Unexpected error creating testimony:', error.message, error.stack);
+      throw new InternalServerErrorException('Failed to create testimony. Please check your input and try again.');
     }
   }
 
@@ -103,8 +116,15 @@ export class TestimonyService {
       });
 
       return testimonies;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching testimonies:', error);
+      
+      // Re-throw HTTP exceptions
+      if (error.status) {
+        throw error;
+      }
+      
+      console.error('Unexpected error fetching testimonies:', error.message);
       throw new InternalServerErrorException('Failed to fetch testimonies');
     }
   }
@@ -213,7 +233,7 @@ export class TestimonyService {
       throw new BadRequestException('Invalid user ID');
     }
 
-    // Check if testimony exists and belongs to user
+  
     const existingTestimony = await this.findOne(id);
 
     if (existingTestimony.userId !== userId) {
@@ -223,7 +243,7 @@ export class TestimonyService {
     try {
       const { images, ...testimonyData } = updateTestimonyDto;
 
-      // If images are provided, delete old ones and create new ones
+      
       const updateData: any = { ...testimonyData };
 
       if (images !== undefined) {
@@ -267,7 +287,6 @@ export class TestimonyService {
       throw new BadRequestException('Invalid user ID');
     }
 
-    // Check if testimony exists and belongs to user
     const existingTestimony = await this.findOne(id);
 
     if (existingTestimony.userId !== userId) {

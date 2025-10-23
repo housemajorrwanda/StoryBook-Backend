@@ -26,6 +26,12 @@ import { CreateTestimonyDto } from './dto/create-testimony.dto';
 import { UpdateTestimonyDto } from './dto/update-testimony.dto';
 import { TestimonyResponseDto } from './dto/testimony-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { 
+  ApproveTestimonyDto, 
+  RejectTestimonyDto, 
+  ReportTestimonyDto, 
+  RequestFeedbackDto 
+} from './dto/admin-action.dto';
 
 @ApiTags('Testimonies')
 @Controller('testimonies')
@@ -291,9 +297,9 @@ export class TestimonyController {
   async approveTestimony(
     @Param('id', ParseIntPipe) id: number,
     @Request() req,
-    @Body('feedback') feedback?: string,
+    @Body() approveDto: ApproveTestimonyDto,
   ) {
-    return this.testimonyService.approveTestimony(id, req.user.userId, feedback);
+    return this.testimonyService.approveTestimony(id, req.user.userId, approveDto.feedback);
   }
 
   @Post(':id/reject')
@@ -321,9 +327,9 @@ export class TestimonyController {
   async rejectTestimony(
     @Param('id', ParseIntPipe) id: number,
     @Request() req,
-    @Body('reason') reason: string,
+    @Body() rejectDto: RejectTestimonyDto,
   ) {
-    return this.testimonyService.rejectTestimony(id, req.user.userId, reason);
+    return this.testimonyService.rejectTestimony(id, req.user.userId, rejectDto.reason);
   }
 
   @Post(':id/report')
@@ -351,9 +357,9 @@ export class TestimonyController {
   async reportTestimony(
     @Param('id', ParseIntPipe) id: number,
     @Request() req,
-    @Body('reason') reason: string,
+    @Body() reportDto: ReportTestimonyDto,
   ) {
-    return this.testimonyService.reportTestimony(id, req.user.userId, reason);
+    return this.testimonyService.reportTestimony(id, req.user.userId, reportDto.reason);
   }
 
   @Post(':id/request-feedback')
@@ -381,8 +387,8 @@ export class TestimonyController {
   async requestFeedback(
     @Param('id', ParseIntPipe) id: number,
     @Request() req,
-    @Body('message') message: string,
+    @Body() feedbackDto: RequestFeedbackDto,
   ) {
-    return this.testimonyService.requestFeedback(id, req.user.userId, message);
+    return this.testimonyService.requestFeedback(id, req.user.userId, feedbackDto.message);
   }
 }
