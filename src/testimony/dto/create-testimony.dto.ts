@@ -109,7 +109,6 @@ export class CreateTestimonyDto {
     example: '1994-04-07',
     required: false,
   })
-  @IsDateString({}, { message: 'Date of event must be a valid date' })
   @Transform(({ value }) => value ? new Date(value) : undefined)
   @IsOptional()
   dateOfEvent?: Date;

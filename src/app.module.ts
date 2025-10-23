@@ -16,8 +16,8 @@ import { UploadModule } from './upload/upload.module';
       isGlobal: true,
     }),
     ThrottlerModule.forRoot([{
-      ttl: 60000, // Time window in milliseconds (1 minute)
-      limit: 10, // Max requests per ttl window
+      ttl: 60000, 
+      limit: 10, 
     }]),
     PrismaModule,
     AuthModule,
