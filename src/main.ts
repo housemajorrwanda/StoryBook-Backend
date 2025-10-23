@@ -16,7 +16,7 @@ async function bootstrap() {
   const config = new DocumentBuilder()
     .setTitle('StoryBook API')
     .setDescription('Testimony Management System - Authentication, Testimonies, File Upload, and Admin Approval Workflow')
-    .setVersion('1.0.0')
+    .setVersion('1.0.1')
     .addTag('Authentication', 'User authentication and registration')
     .addTag('Users', 'User management endpoints')
     .addTag('Testimonies', 'Testimony CRUD and management')
