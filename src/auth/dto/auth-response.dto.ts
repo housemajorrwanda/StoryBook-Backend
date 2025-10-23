@@ -4,7 +4,7 @@ import { User } from '../../user/user.types';
 export class AuthResponseDto {
   @ApiProperty({ 
     description: 'JWT access token',
-    example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+    example: 'eyJhbGciOiJIUzI1NiIsInR5cCII...........'
   })
   access_token: string;
 

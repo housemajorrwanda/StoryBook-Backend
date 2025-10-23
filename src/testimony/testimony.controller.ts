@@ -109,6 +109,52 @@ export class TestimonyController {
     return this.testimonyService.findOne(id);
   }
 
+  @Post(':id/impression')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Increment testimony impression count' })
+  @ApiParam({ name: 'id', type: Number })
+  @ApiResponse({
+    status: 200,
+    description: 'Impression count incremented',
+    schema: {
+      type: 'object',
+      properties: {
+        id: { type: 'number' },
+        impressions: { type: 'number' },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Testimony not found',
+  })
+  async incrementImpression(@Param('id', ParseIntPipe) id: number) {
+    return this.testimonyService.incrementImpression(id);
+  }
+
+  @Get(':id/impressions')
+  @ApiOperation({ summary: 'Get testimony impression count' })
+  @ApiParam({ name: 'id', type: Number })
+  @ApiResponse({
+    status: 200,
+    description: 'Impression count',
+    schema: {
+      type: 'object',
+      properties: {
+        id: { type: 'number' },
+        eventTitle: { type: 'string' },
+        impressions: { type: 'number' },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Testimony not found',
+  })
+  async getImpressions(@Param('id', ParseIntPipe) id: number) {
+    return this.testimonyService.getImpressions(id);
+  }
+
   @Patch(':id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')

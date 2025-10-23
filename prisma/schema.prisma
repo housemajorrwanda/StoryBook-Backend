@@ -78,6 +78,7 @@ model Testimony {
   // Status and metadata
   status                String   @default("pending") // pending, approved, rejected, reported, feedback_requested
   isPublished           Boolean  @default(false)
+  impressions           Int      @default(0) // Track view count
   
   // Admin actions
   adminFeedback         String?  @db.Text // Feedback from admin
