@@ -110,8 +110,9 @@ export class CreateTestimonyDto {
     required: false,
   })
   @IsDateString({}, { message: 'Date of event must be a valid date' })
+  @Transform(({ value }) => value ? new Date(value) : undefined)
   @IsOptional()
-  dateOfEvent?: string;
+  dateOfEvent?: Date;
 
   // ========== Event Information ==========
   @ApiProperty({
