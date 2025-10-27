@@ -1,8 +1,15 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-return */
 import { Controller, Get, UseGuards, Request } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { UserService } from './user.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { User } from './user.types';
+import type { User } from './user.types';
 import { UserDto } from './user.dto';
 
 @ApiTags('Users')
@@ -14,14 +21,14 @@ export class UserController {
 
   @Get()
   @ApiOperation({ summary: 'Get all users (protected route)' })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'List of all users',
-    type: [UserDto]
+    type: [UserDto],
   })
-  @ApiResponse({ 
-    status: 401, 
-    description: 'Unauthorized'
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
   })
   async findAll(): Promise<User[]> {
     return this.userService.findAll();
@@ -29,16 +36,16 @@ export class UserController {
 
   @Get('me')
   @ApiOperation({ summary: 'Get current user information' })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Current user information',
-    type: UserDto
+    type: UserDto,
   })
-  @ApiResponse({ 
-    status: 401, 
-    description: 'Unauthorized'
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
   })
-  async getCurrentUser(@Request() req): Promise<User> {
+  getCurrentUser(@Request() req): User {
     return req.user;
   }
 }

@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import {
   Injectable,
   NotFoundException,
@@ -21,7 +23,9 @@ export class TestimonyService {
 
     // Validate that agreedToTerms is true
     if (!createTestimonyDto.agreedToTerms) {
-      throw new BadRequestException('You must agree to the terms and conditions');
+      throw new BadRequestException(
+        'You must agree to the terms and conditions',
+      );
     }
 
     try {
@@ -52,23 +56,33 @@ export class TestimonyService {
       return testimony;
     } catch (error: any) {
       console.error('Error creating testimony:', error);
-      
+
       // Re-throw HTTP exceptions (like BadRequestException from validation)
       if (error.status) {
         throw error;
       }
-      
+
       // Handle Prisma errors
       if (error.code === 'P2003') {
         throw new BadRequestException('Invalid user ID - user does not exist');
       }
       if (error.code === 'P2002') {
-        throw new BadRequestException('A testimony with this data already exists');
+        throw new BadRequestException(
+          'A testimony with this data already exists',
+        );
       }
-      
+
       // Log the actual error for debugging
-      console.error('Unexpected error creating testimony:', error.message, error.stack);
-      throw new InternalServerErrorException('Failed to create testimony. Please check your input and try again.');
+      console.error(
+        'Unexpected error creating testimony:',
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        error.message,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        error.stack,
+      );
+      throw new InternalServerErrorException(
+        'Failed to create testimony. Please check your input and try again.',
+      );
     }
   }
 
@@ -106,9 +120,8 @@ export class TestimonyService {
           user: {
             select: {
               id: true,
-              username: true,
-              firstName: true,
-              lastName: true,
+              fullName: true,
+              residentPlace: true,
             },
           },
         },
@@ -118,13 +131,17 @@ export class TestimonyService {
       return testimonies;
     } catch (error: any) {
       console.error('Error fetching testimonies:', error);
-      
+
       // Re-throw HTTP exceptions
       if (error.status) {
         throw error;
       }
-      
-      console.error('Unexpected error fetching testimonies:', error.message);
+
+      console.error(
+        'Unexpected error fetching testimonies:',
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        error.message,
+      );
       throw new InternalServerErrorException('Failed to fetch testimonies');
     }
   }
@@ -144,9 +161,8 @@ export class TestimonyService {
           user: {
             select: {
               id: true,
-              username: true,
-              firstName: true,
-              lastName: true,
+              fullName: true,
+              residentPlace: true,
             },
           },
         },
@@ -224,7 +240,11 @@ export class TestimonyService {
     }
   }
 
-  async update(id: number, userId: number, updateTestimonyDto: UpdateTestimonyDto) {
+  async update(
+    id: number,
+    userId: number,
+    updateTestimonyDto: UpdateTestimonyDto,
+  ) {
     if (!id || id <= 0) {
       throw new BadRequestException('Invalid testimony ID');
     }
@@ -233,7 +253,6 @@ export class TestimonyService {
       throw new BadRequestException('Invalid user ID');
     }
 
-  
     const existingTestimony = await this.findOne(id);
 
     if (existingTestimony.userId !== userId) {
@@ -243,7 +262,6 @@ export class TestimonyService {
     try {
       const { images, ...testimonyData } = updateTestimonyDto;
 
-      
       const updateData: any = { ...testimonyData };
 
       if (images !== undefined) {
@@ -323,7 +341,9 @@ export class TestimonyService {
 
     const validStatuses = ['pending', 'approved', 'rejected'];
     if (!validStatuses.includes(status)) {
-      throw new BadRequestException('Invalid status. Must be pending, approved, or rejected');
+      throw new BadRequestException(
+        'Invalid status. Must be pending, approved, or rejected',
+      );
     }
 
     try {
@@ -343,7 +363,9 @@ export class TestimonyService {
         throw new NotFoundException('Testimony not found');
       }
       console.error('Error updating testimony status:', error);
-      throw new InternalServerErrorException('Failed to update testimony status');
+      throw new InternalServerErrorException(
+        'Failed to update testimony status',
+      );
     }
   }
 
@@ -355,7 +377,9 @@ export class TestimonyService {
     const existingTestimony = await this.findOne(id);
 
     if (existingTestimony.userId !== userId) {
-      throw new ForbiddenException('You can only publish/unpublish your own testimonies');
+      throw new ForbiddenException(
+        'You can only publish/unpublish your own testimonies',
+      );
     }
 
     try {

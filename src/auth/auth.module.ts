@@ -16,18 +16,17 @@ import { EmailModule } from '../email/email.module';
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_SECRET') || 'your-super-secret-jwt-key-change-this-in-production',
-        signOptions: { 
-          expiresIn: '24h'
+        secret:
+          configService.get<string>('JWT_SECRET') ||
+          'your-super-secret-jwt-key-change-this-in-production',
+        signOptions: {
+          expiresIn: '24h',
         },
       }),
       inject: [ConfigService],
     }),
   ],
-  providers: [
-    AuthService, 
-    JwtStrategy,
-  ],
+  providers: [AuthService, JwtStrategy],
   controllers: [AuthController],
   exports: [AuthService],
 })

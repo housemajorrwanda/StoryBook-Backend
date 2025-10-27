@@ -1,4 +1,12 @@
-import { Injectable, ConflictException, NotFoundException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+import {
+  Injectable,
+  ConflictException,
+  NotFoundException,
+  BadRequestException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { User } from './user.types';
 import * as bcrypt from 'bcryptjs';
@@ -8,31 +16,25 @@ export class UserService {
   constructor(private prisma: PrismaService) {}
 
   async create(userData: Partial<User>): Promise<User> {
-    if (!userData.email || !userData.username) {
-      throw new BadRequestException('Email and username are required');
+    if (!userData.email) {
+      throw new BadRequestException('Email is required');
     }
 
     const existingUser = await this.prisma.user.findFirst({
       where: {
-        OR: [
-          { email: userData.email },
-          { username: userData.username }
-        ]
-      }
+        email: userData.email,
+      },
     });
 
     if (existingUser) {
-      if (existingUser.email === userData.email) {
-        throw new ConflictException('User with this email already exists');
-      }
-      throw new ConflictException('User with this username already exists');
+      throw new ConflictException('User with this email already exists');
     }
 
     let hashedPassword: string | null = null;
     if (userData.password) {
       hashedPassword = await bcrypt.hash(userData.password, 10);
     }
-    
+
     try {
       return await this.prisma.user.create({
         data: {
@@ -46,18 +48,13 @@ export class UserService {
     }
   }
 
-  async findByUsername(username: string): Promise<User | null> {
-    if (!username || username.trim() === '') {
+  async findByEmail(email: string): Promise<User | null> {
+    if (!email || email.trim() === '') {
       return null;
     }
-    
-    return this.prisma.user.findFirst({
-      where: {
-        OR: [
-          { username },
-          { email: username }
-        ]
-      }
+
+    return this.prisma.user.findUnique({
+      where: { email: email.toLowerCase() },
     });
   }
 
@@ -65,11 +62,14 @@ export class UserService {
     if (!id || id <= 0) {
       return null;
     }
-    
+
     return this.prisma.user.findUnique({ where: { id } });
   }
 
-  async validatePassword(plainPassword: string, hashedPassword: string): Promise<boolean> {
+  async validatePassword(
+    plainPassword: string,
+    hashedPassword: string,
+  ): Promise<boolean> {
     return bcrypt.compare(plainPassword, hashedPassword);
   }
 
@@ -78,14 +78,13 @@ export class UserService {
       select: {
         id: true,
         email: true,
-        username: true,
-        firstName: true,
-        lastName: true,
+        fullName: true,
+        residentPlace: true,
         isActive: true,
         createdAt: true,
         updatedAt: true,
-        password: false
-      }
+        password: false,
+      },
     });
     return users as unknown as User[];
   }
@@ -108,11 +107,13 @@ export class UserService {
     try {
       return await this.prisma.user.update({
         where: { id },
-        data: dataToUpdate as any
+        data: dataToUpdate as any,
       });
     } catch (error: any) {
       if (error.code === 'P2002') {
-        throw new ConflictException('User with this email or username already exists');
+        throw new ConflictException(
+          'User with this email or username already exists',
+        );
       }
       console.error('Error updating user:', error);
       throw new InternalServerErrorException('Failed to update user');
@@ -131,30 +132,28 @@ export class UserService {
         throw new NotFoundException('User not found');
       }
       if (error.code === 'P2003') {
-        throw new BadRequestException('Cannot delete user due to existing related records');
+        throw new BadRequestException(
+          'Cannot delete user due to existing related records',
+        );
       }
       console.error('Error deleting user:', error);
       throw new InternalServerErrorException('Failed to delete user');
     }
   }
 
-  async findByEmail(email: string): Promise<User | null> {
-    if (!email || email.trim() === '') {
-      return null;
-    }
-    
-    return this.prisma.user.findUnique({ where: { email: email.toLowerCase() } });
-  }
-
   async findByResetToken(resetToken: string): Promise<User | null> {
     if (!resetToken || resetToken.trim() === '') {
       return null;
     }
-    
+
     return this.prisma.user.findUnique({ where: { resetToken } as any });
   }
 
-  async updateResetToken(id: number, resetToken: string, resetTokenExpiry: Date): Promise<void> {
+  async updateResetToken(
+    id: number,
+    resetToken: string,
+    resetTokenExpiry: Date,
+  ): Promise<void> {
     if (!id || id <= 0) {
       throw new BadRequestException('Invalid user ID');
     }
@@ -186,7 +185,7 @@ export class UserService {
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
-    
+
     try {
       await this.prisma.user.update({
         where: { id },
@@ -229,21 +228,19 @@ export class UserService {
     if (!googleId || googleId.trim() === '') {
       return null;
     }
-    
+
     return this.prisma.user.findUnique({ where: { googleId } as any });
   }
 
   async createGoogleUser(userData: {
     email: string;
-    firstName?: string;
-    lastName?: string;
+    fullName?: string;
     googleId: string;
     avatar?: string;
     provider: string;
-    username: string;
   }): Promise<User> {
-    if (!userData.email || !userData.googleId || !userData.username) {
-      throw new BadRequestException('Email, Google ID, and username are required');
+    if (!userData.email || !userData.googleId) {
+      throw new BadRequestException('Email and Google ID are required');
     }
 
     try {
@@ -255,14 +252,18 @@ export class UserService {
       });
     } catch (error: any) {
       if (error.code === 'P2002') {
-        throw new ConflictException('User with this email or username already exists');
+        throw new ConflictException('User with this email already exists');
       }
       console.error('Error creating Google user:', error);
       throw new InternalServerErrorException('Failed to create Google user');
     }
   }
 
-  async linkGoogleAccount(userId: number, googleId: string, avatar?: string): Promise<void> {
+  async linkGoogleAccount(
+    userId: number,
+    googleId: string,
+    avatar?: string,
+  ): Promise<void> {
     if (!userId || userId <= 0) {
       throw new BadRequestException('Invalid user ID');
     }
@@ -285,7 +286,9 @@ export class UserService {
         throw new NotFoundException('User not found');
       }
       if (error.code === 'P2002') {
-        throw new ConflictException('This Google account is already linked to another user');
+        throw new ConflictException(
+          'This Google account is already linked to another user',
+        );
       }
       console.error('Error linking Google account:', error);
       throw new InternalServerErrorException('Failed to link Google account');

@@ -3,19 +3,20 @@ import { IsNotEmpty, IsString, MaxLength } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 export class LoginDto {
-  @ApiProperty({ 
-    description: 'Username or email',
-    example: 'johndoe'
+  @ApiProperty({
+    description: 'User email address',
+    example: 'user@example.com',
   })
-  @IsString({ message: 'Username must be a string' })
-  @IsNotEmpty({ message: 'Username is required' })
-  @MaxLength(255, { message: 'Username must not exceed 255 characters' })
-  @Transform(({ value }) => value?.trim())
-  username: string;
+  @IsString({ message: 'Email must be a string' })
+  @IsNotEmpty({ message: 'Email is required' })
+  @MaxLength(255, { message: 'Email must not exceed 255 characters' })
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
+  @Transform(({ value }) => value?.trim().toLowerCase())
+  email: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'User password',
-    example: 'Password123!'
+    example: 'Password123!',
   })
   @IsString({ message: 'Password must be a string' })
   @IsNotEmpty({ message: 'Password is required' })

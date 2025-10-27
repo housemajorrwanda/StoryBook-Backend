@@ -16,10 +16,9 @@ datasource db {
 model User {
   id                Int          @id @default(autoincrement())
   email             String       @unique
-  username          String       @unique
   password          String?      // Make password optional for Google OAuth users
-  firstName         String?
-  lastName          String?
+  fullName          String?
+  residentPlace     String?
   isActive          Boolean      @default(true)
   resetToken        String?      @unique
   resetTokenExpiry  DateTime?

@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsEnum, IsOptional, MaxLength } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, MaxLength } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 export enum TestimonyStatus {
@@ -19,6 +19,7 @@ export class ApproveTestimonyDto {
   @IsString({ message: 'Feedback must be a string' })
   @MaxLength(2000, { message: 'Feedback must not exceed 2000 characters' })
   @IsOptional()
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
   @Transform(({ value }) => value?.trim())
   feedback?: string;
 }
@@ -31,6 +32,7 @@ export class RejectTestimonyDto {
   @IsString({ message: 'Reason must be a string' })
   @IsNotEmpty({ message: 'Reason for rejection is required' })
   @MaxLength(2000, { message: 'Reason must not exceed 2000 characters' })
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
   @Transform(({ value }) => value?.trim())
   reason: string;
 }
@@ -43,6 +45,7 @@ export class ReportTestimonyDto {
   @IsString({ message: 'Reason must be a string' })
   @IsNotEmpty({ message: 'Reason for reporting is required' })
   @MaxLength(2000, { message: 'Reason must not exceed 2000 characters' })
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
   @Transform(({ value }) => value?.trim())
   reason: string;
 }
@@ -54,7 +57,10 @@ export class RequestFeedbackDto {
   })
   @IsString({ message: 'Feedback message must be a string' })
   @IsNotEmpty({ message: 'Feedback message is required' })
-  @MaxLength(2000, { message: 'Feedback message must not exceed 2000 characters' })
+  @MaxLength(2000, {
+    message: 'Feedback message must not exceed 2000 characters',
+  })
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
   @Transform(({ value }) => value?.trim())
   message: string;
 }

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { ApiProperty } from '@nestjs/swagger';
 import {
   IsString,
@@ -5,7 +6,6 @@ import {
   IsOptional,
   IsEnum,
   IsBoolean,
-  IsDateString,
   MaxLength,
   MinLength,
   IsArray,
@@ -44,7 +44,9 @@ export class CreateTestimonyDto {
     enum: SubmissionType,
     example: SubmissionType.WRITTEN,
   })
-  @IsEnum(SubmissionType, { message: 'Submission type must be written, audio, or video' })
+  @IsEnum(SubmissionType, {
+    message: 'Submission type must be written, audio, or video',
+  })
   @IsNotEmpty({ message: 'Submission type is required' })
   submissionType: SubmissionType;
 
@@ -54,13 +56,16 @@ export class CreateTestimonyDto {
     enum: IdentityPreference,
     example: IdentityPreference.PUBLIC,
   })
-  @IsEnum(IdentityPreference, { message: 'Identity preference must be public or anonymous' })
+  @IsEnum(IdentityPreference, {
+    message: 'Identity preference must be public or anonymous',
+  })
   @IsNotEmpty({ message: 'Identity preference is required' })
   identityPreference: IdentityPreference;
 
   // ========== Personal Information ==========
   @ApiProperty({
-    description: 'Full name of the person submitting (required if identity is public)',
+    description:
+      'Full name of the person submitting (required if identity is public)',
     example: 'John Doe',
     required: false,
   })
@@ -69,6 +74,7 @@ export class CreateTestimonyDto {
   @IsNotEmpty({ message: 'Full name is required for public identity' })
   @MinLength(2, { message: 'Full name must be at least 2 characters' })
   @MaxLength(200, { message: 'Full name must not exceed 200 characters' })
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
   @Transform(({ value }) => value?.trim())
   fullName?: string;
 
@@ -88,8 +94,11 @@ export class CreateTestimonyDto {
     required: false,
   })
   @IsString({ message: 'Name of relative must be a string' })
-  @MaxLength(200, { message: 'Name of relative must not exceed 200 characters' })
+  @MaxLength(200, {
+    message: 'Name of relative must not exceed 200 characters',
+  })
   @IsOptional()
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
   @Transform(({ value }) => value?.trim())
   nameOfRelative?: string;
 
@@ -101,6 +110,7 @@ export class CreateTestimonyDto {
   @IsString({ message: 'Location must be a string' })
   @MaxLength(300, { message: 'Location must not exceed 300 characters' })
   @IsOptional()
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
   @Transform(({ value }) => value?.trim())
   location?: string;
 
@@ -109,7 +119,8 @@ export class CreateTestimonyDto {
     example: '1994-04-07',
     required: false,
   })
-  @Transform(({ value }) => value ? new Date(value) : undefined)
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+  @Transform(({ value }) => (value ? new Date(value) : undefined))
   @IsOptional()
   dateOfEvent?: Date;
 
@@ -122,6 +133,7 @@ export class CreateTestimonyDto {
   @IsNotEmpty({ message: 'Event title is required' })
   @MinLength(5, { message: 'Event title must be at least 5 characters' })
   @MaxLength(300, { message: 'Event title must not exceed 300 characters' })
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
   @Transform(({ value }) => value?.trim())
   eventTitle: string;
 
@@ -131,14 +143,18 @@ export class CreateTestimonyDto {
     required: false,
   })
   @IsString({ message: 'Event description must be a string' })
-  @MaxLength(1000, { message: 'Event description must not exceed 1000 characters' })
+  @MaxLength(1000, {
+    message: 'Event description must not exceed 1000 characters',
+  })
   @IsOptional()
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
   @Transform(({ value }) => value?.trim())
   eventDescription?: string;
 
   // ========== Written Testimony (Required for WRITTEN type) ==========
   @ApiProperty({
-    description: 'Full written testimony (required for written submission type)',
+    description:
+      'Full written testimony (required for written submission type)',
     example: 'This is my full testimony...',
     required: false,
   })
@@ -146,7 +162,10 @@ export class CreateTestimonyDto {
   @IsString({ message: 'Full testimony must be a string' })
   @IsNotEmpty({ message: 'Full testimony is required for written submissions' })
   @MinLength(50, { message: 'Full testimony must be at least 50 characters' })
-  @MaxLength(50000, { message: 'Full testimony must not exceed 50000 characters' })
+  @MaxLength(50000, {
+    message: 'Full testimony must not exceed 50000 characters',
+  })
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
   @Transform(({ value }) => value?.trim())
   fullTestimony?: string;
 

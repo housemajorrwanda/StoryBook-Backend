@@ -1,11 +1,18 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsOptional, MaxLength, IsInt, Min } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  MaxLength,
+  IsInt,
+  Min,
+} from 'class-validator';
 import { Transform } from 'class-transformer';
 
 export class TestimonyImageDto {
   @ApiProperty({
     description: 'Image URL',
-    example: 'https://example.com/images/testimony-image.jpg'
+    example: 'https://example.com/images/testimony-image.jpg',
   })
   @IsString({ message: 'Image URL must be a string' })
   @IsNotEmpty({ message: 'Image URL is required' })
@@ -14,7 +21,7 @@ export class TestimonyImageDto {
 
   @ApiProperty({
     description: 'Image file name',
-    example: 'testimony-image.jpg'
+    example: 'testimony-image.jpg',
   })
   @IsString({ message: 'Image file name must be a string' })
   @IsNotEmpty({ message: 'Image file name is required' })
@@ -24,11 +31,12 @@ export class TestimonyImageDto {
   @ApiProperty({
     description: 'Short description of the image',
     example: 'Photo from the memorial event',
-    required: false
+    required: false,
   })
   @IsString({ message: 'Description must be a string' })
   @MaxLength(500, { message: 'Description must not exceed 500 characters' })
   @IsOptional()
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
   @Transform(({ value }) => value?.trim())
   description?: string;
 
@@ -36,7 +44,7 @@ export class TestimonyImageDto {
     description: 'Display order of the image',
     example: 1,
     required: false,
-    default: 0
+    default: 0,
   })
   @IsInt({ message: 'Order must be an integer' })
   @Min(0, { message: 'Order must be at least 0' })

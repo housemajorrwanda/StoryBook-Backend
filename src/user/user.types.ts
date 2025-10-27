@@ -1,10 +1,9 @@
 export interface User {
   id: number;
   email: string;
-  username: string;
   password?: string | null;
-  firstName?: string | null;
-  lastName?: string | null;
+  fullName?: string | null;
+  residentPlace?: string | null;
   isActive: boolean;
   resetToken?: string | null;
   resetTokenExpiry?: Date | null;
