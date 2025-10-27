@@ -112,9 +112,7 @@ export class UserService {
       });
     } catch (error: any) {
       if (error.code === 'P2002') {
-        throw new ConflictException(
-          'User with this email or username already exists',
-        );
+        throw new ConflictException('User with this email already exists');
       }
       console.error('Error updating user:', error);
       throw new InternalServerErrorException('Failed to update user');

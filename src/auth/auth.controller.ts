@@ -43,7 +43,7 @@ export class AuthController {
   })
   @ApiResponse({
     status: 409,
-    description: 'User with this email or username already exists',
+    description: 'User with this email already exists',
   })
   @ApiResponse({
     status: 429,

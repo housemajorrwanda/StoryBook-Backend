@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ConfigService } from '@nestjs/config';
@@ -25,17 +26,18 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     });
   }
 
-  async validate(
-    profile: any,
-    done: VerifyCallback,
-  ): Promise<any> {
+  /* eslint-disable @typescript-eslint/no-unsafe-assignment */
+  /* eslint-disable @typescript-eslint/no-unsafe-member-access */
+  async validate(profile: any, done: VerifyCallback): Promise<any> {
     const { id, name, emails, photos } = profile;
-    
+
     const user = {
       googleId: id,
       email: emails[0].value,
-      firstName: name.givenName,
-      lastName: name.familyName,
+      fullName:
+        name.givenName && name.familyName
+          ? `${name.givenName} ${name.familyName}`
+          : name.givenName || name.familyName || undefined,
       avatar: photos[0].value,
       provider: 'google',
     };
@@ -43,4 +45,6 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     const validatedUser = await this.authService.validateGoogleUser(user);
     done(null, validatedUser);
   }
+  /* eslint-enable @typescript-eslint/no-unsafe-assignment */
+  /* eslint-enable @typescript-eslint/no-unsafe-member-access */
 }
