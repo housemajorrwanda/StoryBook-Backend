@@ -75,9 +75,7 @@ export class TestimonyService {
       // Log the actual error for debugging
       console.error(
         'Unexpected error creating testimony:',
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         error.message,
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         error.stack,
       );
       throw new InternalServerErrorException(
@@ -137,11 +135,7 @@ export class TestimonyService {
         throw error;
       }
 
-      console.error(
-        'Unexpected error fetching testimonies:',
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        error.message,
-      );
+      console.error('Unexpected error fetching testimonies:', error.message);
       throw new InternalServerErrorException('Failed to fetch testimonies');
     }
   }
