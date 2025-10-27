@@ -7,14 +7,14 @@ export class UserDto {
   @ApiProperty({ description: 'The email address of the user' })
   email: string;
 
-  @ApiProperty({ description: 'The username of the user' })
-  username: string;
+  @ApiProperty({ description: 'The full name of the user', required: false })
+  fullName?: string;
 
-  @ApiProperty({ description: 'The first name of the user', required: false })
-  firstName?: string;
-
-  @ApiProperty({ description: 'The last name of the user', required: false })
-  lastName?: string;
+  @ApiProperty({
+    description: 'The resident place of the user',
+    required: false,
+  })
+  residentPlace?: string;
 
   @ApiProperty({ description: 'Whether the user account is active' })
   isActive: boolean;
