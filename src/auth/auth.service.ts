@@ -175,14 +175,9 @@ export class AuthService {
 
       // Create new user with Google account
       try {
-        const fullName =
-          googleUser.firstName && googleUser.lastName
-            ? `${googleUser.firstName} ${googleUser.lastName}`
-            : googleUser.firstName || googleUser.lastName || undefined;
-
         const newUser = await this.userService.createGoogleUser({
           email: googleUser.email,
-          fullName,
+          fullName: googleUser.fullName,
           googleId: googleUser.googleId,
           avatar: googleUser.avatar,
           provider: 'google',
