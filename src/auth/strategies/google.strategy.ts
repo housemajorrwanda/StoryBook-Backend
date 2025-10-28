@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ConfigService } from '@nestjs/config';
@@ -9,7 +8,15 @@ interface VerifyCallback {
 }
 
 declare class Strategy {
-  constructor(options: any, verify: any);
+  constructor(
+    options: {
+      clientID: string;
+      clientSecret: string;
+      callbackURL: string;
+      scope: string[];
+    },
+    verify: (profile: any, done: VerifyCallback) => Promise<any>,
+  );
 }
 
 @Injectable()
@@ -19,32 +26,40 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     private authService: AuthService,
   ) {
     super({
-      clientID: configService.get('GOOGLE_CLIENT_ID'),
-      clientSecret: configService.get('GOOGLE_CLIENT_SECRET'),
-      callbackURL: configService.get('GOOGLE_CALLBACK_URL'),
+      clientID: configService.get<string>('GOOGLE_CLIENT_ID') || '',
+      clientSecret: configService.get<string>('GOOGLE_CLIENT_SECRET') || '',
+      callbackURL: configService.get<string>('GOOGLE_CALLBACK_URL') || '',
       scope: ['email', 'profile'],
     });
   }
 
-  /* eslint-disable @typescript-eslint/no-unsafe-assignment */
-  /* eslint-disable @typescript-eslint/no-unsafe-member-access */
   async validate(profile: any, done: VerifyCallback): Promise<any> {
-    const { id, name, emails, photos } = profile;
+    const { id, name, emails, photos } = profile as {
+      id: string;
+      name: { givenName: string; familyName: string };
+      emails: { value: string }[];
+      photos: { value: string }[];
+    };
 
-    const user = {
+    const user: {
+      googleId: string;
+      email: string;
+      fullName: string;
+      avatar: string;
+      provider: string;
+    } = {
       googleId: id,
-      email: emails[0].value,
+      email: emails[0].value || '',
       fullName:
         name.givenName && name.familyName
           ? `${name.givenName} ${name.familyName}`
-          : name.givenName || name.familyName || undefined,
+          : name.givenName || name.familyName || '',
       avatar: photos[0].value,
       provider: 'google',
     };
 
-    const validatedUser = await this.authService.validateGoogleUser(user);
+    const validatedUser: unknown =
+      await this.authService.validateGoogleUser(user);
     done(null, validatedUser);
   }
-  /* eslint-enable @typescript-eslint/no-unsafe-assignment */
-  /* eslint-enable @typescript-eslint/no-unsafe-member-access */
 }

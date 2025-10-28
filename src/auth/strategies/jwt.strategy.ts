@@ -13,16 +13,29 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: configService.get<string>('JWT_SECRET') || 'your-super-secret-jwt-key-change-this-in-production',
+      secretOrKey:
+        configService.get<string>('JWT_SECRET') ||
+        'your-super-secret-jwt-key-change-this-in-production',
     });
   }
 
   async validate(payload: any) {
     try {
-      const user = await this.authService.validateUser(payload.sub);
+      const user = await this.authService.validateUser(
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        payload.sub as number,
+      );
       return { ...user, userId: user.id };
     } catch (error) {
-      throw new UnauthorizedException('Invalid token');
+      console.error('Error validating user:', error);
+      if (error instanceof Error) {
+        throw new UnauthorizedException(
+          error instanceof Error ? error.message : 'Invalid token',
+        );
+      }
+      throw new UnauthorizedException(
+        error instanceof Error ? error.message : 'Invalid token',
+      );
     }
   }
 }

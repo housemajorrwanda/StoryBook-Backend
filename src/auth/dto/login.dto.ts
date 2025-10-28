@@ -10,8 +10,7 @@ export class LoginDto {
   @IsString({ message: 'Email must be a string' })
   @IsNotEmpty({ message: 'Email is required' })
   @MaxLength(255, { message: 'Email must not exceed 255 characters' })
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
-  @Transform(({ value }) => value?.trim().toLowerCase())
+  @Transform(({ value }: { value: string }) => value?.trim().toLowerCase())
   email: string;
 
   @ApiProperty({

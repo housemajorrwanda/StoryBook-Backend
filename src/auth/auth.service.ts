@@ -1,7 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import {
   Injectable,
   UnauthorizedException,
@@ -10,6 +6,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { UserService } from '../user/user.service';
 import { EmailService } from '../email/email.service';
+import type { User } from '../user/user.types';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
@@ -27,7 +24,7 @@ export class AuthService {
 
   async register(registerDto: RegisterDto): Promise<AuthResponseDto> {
     const user = await this.userService.create(registerDto);
-    const { password, ...userWithoutPassword } = user;
+    const { ...userWithoutPassword } = user;
 
     const payload = { email: user.email, sub: user.id };
     const access_token = this.jwtService.sign(payload);
@@ -52,7 +49,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const { password, ...userWithoutPassword } = user;
+    const { ...userWithoutPassword } = user;
     const payload = { email: user.email, sub: user.id };
     const access_token = this.jwtService.sign(payload);
 
@@ -67,7 +64,7 @@ export class AuthService {
     if (!user) {
       throw new UnauthorizedException('User not found');
     }
-    const { password, ...userWithoutPassword } = user;
+    const { ...userWithoutPassword } = user;
     return userWithoutPassword;
   }
 
@@ -131,13 +128,18 @@ export class AuthService {
     return { message: 'Password has been successfully reset' };
   }
 
-  async validateGoogleUser(googleUser: any): Promise<any> {
+  async validateGoogleUser(googleUser: {
+    email?: string;
+    googleId?: string;
+    fullName?: string;
+    avatar?: string;
+  }): Promise<AuthResponseDto> {
     try {
       // Validate required Google user data
-      if (!googleUser?.email || !googleUser?.googleId) {
+      if (!googleUser.email || !googleUser.googleId) {
         console.error('Invalid Google user data:', {
-          hasEmail: !!googleUser?.email,
-          hasGoogleId: !!googleUser?.googleId,
+          hasEmail: !!googleUser.email,
+          hasGoogleId: !!googleUser.googleId,
         });
         throw new BadRequestException('Invalid Google user data received');
       }
@@ -163,10 +165,20 @@ export class AuthService {
           );
           // Fetch updated user
           user = await this.userService.findById(user.id);
+          if (!user) {
+            throw new UnauthorizedException(
+              'User not found after linking Google account',
+            );
+          }
           return this.generateAuthResponse(user);
-        } catch (linkError: any) {
+        } catch (linkError: unknown) {
           console.error('Error linking Google account:', linkError);
-          if (linkError.status === 409) {
+          if (
+            linkError &&
+            typeof linkError === 'object' &&
+            'status' in linkError &&
+            linkError.status === 409
+          ) {
             throw linkError;
           }
           throw new UnauthorizedException('Failed to link Google account');
@@ -184,25 +196,33 @@ export class AuthService {
         });
 
         return this.generateAuthResponse(newUser);
-      } catch (createError: any) {
+      } catch (createError: unknown) {
         console.error('Error creating Google user:', createError);
-        if (createError.status === 409) {
+        if (
+          createError &&
+          typeof createError === 'object' &&
+          'status' in createError &&
+          createError.status === 409
+        ) {
           throw createError;
         }
         throw new UnauthorizedException(
           'Failed to create user from Google account',
         );
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Log the full error for debugging
-      console.error('Google OAuth validation error:', {
-        message: error.message,
-        status: error.status,
-        name: error.name,
-      });
+      if (error instanceof Error) {
+        console.error('Google OAuth validation error:', {
+          message: error.message,
+          name: error.name,
+        });
+      } else {
+        console.error('Google OAuth validation error:', error);
+      }
 
       // Re-throw known HTTP exceptions
-      if (error.status) {
+      if (error && typeof error === 'object' && 'status' in error) {
         throw error;
       }
 
@@ -211,15 +231,26 @@ export class AuthService {
     }
   }
 
-  private generateAuthResponse(user: any): AuthResponseDto {
-    const {
-      password,
-      resetToken,
-      resetTokenExpiry,
-      ...userWithoutSensitiveData
-    } = user;
+  private generateAuthResponse(user: User): AuthResponseDto {
     const payload = { email: user.email, sub: user.id };
     const access_token = this.jwtService.sign(payload);
+
+    // Create user object without sensitive fields
+    const userWithoutSensitiveData: Omit<
+      User,
+      'password' | 'resetToken' | 'resetTokenExpiry'
+    > = {
+      id: user.id,
+      email: user.email,
+      fullName: user.fullName,
+      residentPlace: user.residentPlace,
+      isActive: user.isActive,
+      googleId: user.googleId,
+      avatar: user.avatar,
+      provider: user.provider,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
 
     return {
       access_token,

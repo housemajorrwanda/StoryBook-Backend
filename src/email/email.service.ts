@@ -12,20 +12,22 @@ export class EmailService {
   }
 
   private createTransporter() {
-    // For development, use Ethereal Email (fake SMTP service)
-    // For production, use your actual SMTP service (Gmail, SendGrid, etc.)
-    
-    const smtpHost = this.configService.get('SMTP_HOST');
-    const smtpUser = this.configService.get('SMTP_USER');
-    const smtpPass = this.configService.get('SMTP_PASS');
-    
-    if (process.env.NODE_ENV === 'production' && smtpHost && smtpUser && smtpPass) {
+    const smtpHost = this.configService.get<string>('SMTP_HOST');
+    const smtpUser = this.configService.get<string>('SMTP_USER');
+    const smtpPass = this.configService.get<string>('SMTP_PASS');
+
+    if (
+      process.env.NODE_ENV === 'production' &&
+      smtpHost &&
+      smtpUser &&
+      smtpPass
+    ) {
       // Production SMTP configuration (only if credentials are provided)
       try {
         this.transporter = nodemailer.createTransport({
           host: smtpHost,
-          port: this.configService.get('SMTP_PORT', 465),
-          secure: true, // true for 465, false for other ports
+          port: this.configService.get<number>('SMTP_PORT', 465),
+          secure: true,
           auth: {
             user: smtpUser,
             pass: smtpPass,
@@ -33,18 +35,22 @@ export class EmailService {
         });
         this.logger.log('Production SMTP transporter configured');
       } catch (error) {
-        this.logger.error('Failed to create production SMTP transporter:', error);
+        this.logger.error(
+          'Failed to create production SMTP transporter:',
+          error,
+        );
         this.createFallbackTransporter();
       }
     } else {
       // Development or missing SMTP config: Use console logging as fallback
-      this.logger.warn('SMTP credentials not configured. Emails will be logged to console.');
+      this.logger.warn(
+        'SMTP credentials not configured. Emails will be logged to console.',
+      );
       this.createFallbackTransporter();
     }
   }
 
   private createFallbackTransporter() {
-    // Create a dummy transporter that logs emails instead of sending them
     this.transporter = nodemailer.createTransport({
       streamTransport: true,
       newline: 'unix',
@@ -52,11 +58,17 @@ export class EmailService {
     });
   }
 
-  async sendPasswordResetEmail(email: string, resetToken: string): Promise<void> {
-    const resetUrl = `${this.configService.get('FRONTEND_URL', 'http://localhost:3000')}/reset-password?token=${resetToken}`;
-    
+  async sendPasswordResetEmail(
+    email: string,
+    resetToken: string,
+  ): Promise<void> {
+    const resetUrl = `${this.configService.get<string>('FRONTEND_URL', 'http://localhost:3000')}/reset-password?token=${resetToken}`;
+
     const mailOptions = {
-      from: this.configService.get('FROM_EMAIL', 'noreply@housemajor.com'),
+      from: this.configService.get<string>(
+        'FROM_EMAIL',
+        'noreply@housemajor.com',
+      ),
       to: email,
       subject: 'Password Reset Request - StoryBook',
       html: `
@@ -96,17 +108,27 @@ export class EmailService {
         return;
       }
 
-      const info = await this.transporter.sendMail(mailOptions);
-      
+      const info = (await this.transporter.sendMail(
+        mailOptions,
+      )) as unknown as Record<string, unknown>;
+
       if (process.env.NODE_ENV !== 'production') {
-        const previewUrl = nodemailer.getTestMessageUrl(info);
-        if (previewUrl) {
-          this.logger.log(`Preview URL: ${previewUrl}`);
+        try {
+          const previewUrl = nodemailer.getTestMessageUrl(
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+            info as unknown as nodemailer.SentMessageInfo,
+          );
+          if (previewUrl) {
+            this.logger.log(`Preview URL: ${previewUrl}`);
+          }
+        } catch (error) {
+          // Ignore preview URL errors in development
+          this.logger.debug('Could not generate preview URL:', error);
         }
       }
-      
+
       // If using fallback transporter, log the email content
-      if (info.message) {
+      if (info && typeof info === 'object' && 'message' in info) {
         this.logger.log(`[EMAIL] Password reset email for: ${email}`);
         this.logger.log(`[EMAIL] Reset URL: ${resetUrl}`);
       } else {

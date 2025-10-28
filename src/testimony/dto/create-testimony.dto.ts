@@ -74,7 +74,7 @@ export class CreateTestimonyDto {
   @IsNotEmpty({ message: 'Full name is required for public identity' })
   @MinLength(2, { message: 'Full name must be at least 2 characters' })
   @MaxLength(200, { message: 'Full name must not exceed 200 characters' })
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return
   @Transform(({ value }) => value?.trim())
   fullName?: string;
 
@@ -98,7 +98,7 @@ export class CreateTestimonyDto {
     message: 'Name of relative must not exceed 200 characters',
   })
   @IsOptional()
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return
   @Transform(({ value }) => value?.trim())
   nameOfRelative?: string;
 
@@ -110,7 +110,7 @@ export class CreateTestimonyDto {
   @IsString({ message: 'Location must be a string' })
   @MaxLength(300, { message: 'Location must not exceed 300 characters' })
   @IsOptional()
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return
   @Transform(({ value }) => value?.trim())
   location?: string;
 
@@ -133,7 +133,7 @@ export class CreateTestimonyDto {
   @IsNotEmpty({ message: 'Event title is required' })
   @MinLength(5, { message: 'Event title must be at least 5 characters' })
   @MaxLength(300, { message: 'Event title must not exceed 300 characters' })
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return
   @Transform(({ value }) => value?.trim())
   eventTitle: string;
 
@@ -147,7 +147,7 @@ export class CreateTestimonyDto {
     message: 'Event description must not exceed 1000 characters',
   })
   @IsOptional()
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return
   @Transform(({ value }) => value?.trim())
   eventDescription?: string;
 
@@ -165,7 +165,7 @@ export class CreateTestimonyDto {
   @MaxLength(50000, {
     message: 'Full testimony must not exceed 50000 characters',
   })
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return
   @Transform(({ value }) => value?.trim())
   fullTestimony?: string;
 

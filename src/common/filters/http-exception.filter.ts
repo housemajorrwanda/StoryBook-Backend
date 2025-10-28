@@ -16,9 +16,12 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const exceptionResponse = exception.getResponse();
 
     // Handle validation errors with detailed messages
-    if (typeof exceptionResponse === 'object' && 'message' in exceptionResponse) {
-      const errorResponse = exceptionResponse as any;
-      
+    if (
+      typeof exceptionResponse === 'object' &&
+      'message' in exceptionResponse
+    ) {
+      const errorResponse = exceptionResponse as Record<string, unknown>;
+
       // If it's a validation error with an array of messages
       if (Array.isArray(errorResponse.message)) {
         return response.status(status).json({
@@ -28,7 +31,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
           timestamp: new Date().toISOString(),
         });
       }
-      
+
       // Single message error
       return response.status(status).json({
         statusCode: status,
@@ -68,7 +71,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     response.status(status).json({
       statusCode: status,
-      error: exception instanceof HttpException ? exception.name : 'Internal Server Error',
+      error:
+        exception instanceof HttpException
+          ? exception.name
+          : 'Internal Server Error',
       message: message,
       timestamp: new Date().toISOString(),
     });

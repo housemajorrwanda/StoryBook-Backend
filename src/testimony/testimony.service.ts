@@ -1,6 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-// Force TypeScript recheck
 import {
   Injectable,
   NotFoundException,
@@ -55,30 +52,38 @@ export class TestimonyService {
       });
 
       return testimony;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error creating testimony:', error);
 
       // Re-throw HTTP exceptions (like BadRequestException from validation)
-      if (error.status) {
+      if (error && typeof error === 'object' && 'status' in error) {
         throw error;
       }
 
       // Handle Prisma errors
-      if (error.code === 'P2003') {
-        throw new BadRequestException('Invalid user ID - user does not exist');
-      }
-      if (error.code === 'P2002') {
-        throw new BadRequestException(
-          'A testimony with this data already exists',
-        );
+      if (error && typeof error === 'object' && 'code' in error) {
+        if (error.code === 'P2003') {
+          throw new BadRequestException(
+            'Invalid user ID - user does not exist',
+          );
+        }
+        if (error.code === 'P2002') {
+          throw new BadRequestException(
+            'A testimony with this data already exists',
+          );
+        }
       }
 
       // Log the actual error for debugging
-      console.error(
-        'Unexpected error creating testimony:',
-        error.message,
-        error.stack,
-      );
+      if (error instanceof Error) {
+        console.error(
+          'Unexpected error creating testimony:',
+          error.message,
+          error.stack,
+        );
+      } else {
+        console.error('Unexpected error creating testimony:', error);
+      }
       throw new InternalServerErrorException(
         'Failed to create testimony. Please check your input and try again.',
       );
@@ -92,7 +97,12 @@ export class TestimonyService {
     isPublished?: boolean;
   }) {
     try {
-      const where: any = {};
+      const where: {
+        submissionType?: string;
+        status?: string;
+        userId?: number;
+        isPublished?: boolean;
+      } = {};
 
       if (filters?.submissionType) {
         where.submissionType = filters.submissionType;
@@ -128,15 +138,17 @@ export class TestimonyService {
       });
 
       return testimonies;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching testimonies:', error);
 
       // Re-throw HTTP exceptions
-      if (error.status) {
+      if (error && typeof error === 'object' && 'status' in error) {
         throw error;
       }
 
-      console.error('Unexpected error fetching testimonies:', error.message);
+      if (error instanceof Error) {
+        console.error('Unexpected error fetching testimonies:', error.message);
+      }
       throw new InternalServerErrorException('Failed to fetch testimonies');
     }
   }
@@ -168,8 +180,13 @@ export class TestimonyService {
       }
 
       return testimony;
-    } catch (error: any) {
-      if (error.status === 404) {
+    } catch (error: unknown) {
+      if (
+        error &&
+        typeof error === 'object' &&
+        'status' in error &&
+        error.status === 404
+      ) {
         throw error;
       }
       console.error('Error fetching testimony:', error);
@@ -197,8 +214,13 @@ export class TestimonyService {
       });
 
       return testimony;
-    } catch (error: any) {
-      if (error.code === 'P2025') {
+    } catch (error: unknown) {
+      if (
+        error &&
+        typeof error === 'object' &&
+        'code' in error &&
+        error.code === 'P2025'
+      ) {
         throw new NotFoundException('Testimony not found');
       }
       console.error('Error incrementing impression:', error);
@@ -226,8 +248,13 @@ export class TestimonyService {
       }
 
       return testimony;
-    } catch (error: any) {
-      if (error.status === 404) {
+    } catch (error: unknown) {
+      if (
+        error &&
+        typeof error === 'object' &&
+        'status' in error &&
+        error.status === 404
+      ) {
         throw error;
       }
       console.error('Error fetching impressions:', error);
@@ -257,7 +284,7 @@ export class TestimonyService {
     try {
       const { images, ...testimonyData } = updateTestimonyDto;
 
-      const updateData: any = { ...testimonyData };
+      const updateData: Record<string, unknown> = { ...testimonyData };
 
       if (images !== undefined) {
         updateData.images = {
@@ -282,8 +309,13 @@ export class TestimonyService {
       });
 
       return testimony;
-    } catch (error: any) {
-      if (error.code === 'P2025') {
+    } catch (error: unknown) {
+      if (
+        error &&
+        typeof error === 'object' &&
+        'code' in error &&
+        error.code === 'P2025'
+      ) {
         throw new NotFoundException('Testimony not found');
       }
       console.error('Error updating testimony:', error);
@@ -312,8 +344,13 @@ export class TestimonyService {
       });
 
       return { message: 'Testimony deleted successfully' };
-    } catch (error: any) {
-      if (error.code === 'P2025') {
+    } catch (error: unknown) {
+      if (
+        error &&
+        typeof error === 'object' &&
+        'code' in error &&
+        error.code === 'P2025'
+      ) {
         throw new NotFoundException('Testimony not found');
       }
       console.error('Error deleting testimony:', error);
@@ -353,8 +390,13 @@ export class TestimonyService {
       });
 
       return testimony;
-    } catch (error: any) {
-      if (error.code === 'P2025') {
+    } catch (error: unknown) {
+      if (
+        error &&
+        typeof error === 'object' &&
+        'code' in error &&
+        error.code === 'P2025'
+      ) {
         throw new NotFoundException('Testimony not found');
       }
       console.error('Error updating testimony status:', error);
@@ -389,8 +431,13 @@ export class TestimonyService {
       });
 
       return testimony;
-    } catch (error: any) {
-      if (error.code === 'P2025') {
+    } catch (error: unknown) {
+      if (
+        error &&
+        typeof error === 'object' &&
+        'code' in error &&
+        error.code === 'P2025'
+      ) {
         throw new NotFoundException('Testimony not found');
       }
       console.error('Error toggling publish status:', error);
@@ -420,8 +467,13 @@ export class TestimonyService {
       });
 
       return testimony;
-    } catch (error: any) {
-      if (error.code === 'P2025') {
+    } catch (error: unknown) {
+      if (
+        error &&
+        typeof error === 'object' &&
+        'code' in error &&
+        error.code === 'P2025'
+      ) {
         throw new NotFoundException('Testimony not found');
       }
       console.error('Error approving testimony:', error);
@@ -455,8 +507,13 @@ export class TestimonyService {
       });
 
       return testimony;
-    } catch (error: any) {
-      if (error.code === 'P2025') {
+    } catch (error: unknown) {
+      if (
+        error &&
+        typeof error === 'object' &&
+        'code' in error &&
+        error.code === 'P2025'
+      ) {
         throw new NotFoundException('Testimony not found');
       }
       console.error('Error rejecting testimony:', error);
@@ -490,8 +547,13 @@ export class TestimonyService {
       });
 
       return testimony;
-    } catch (error: any) {
-      if (error.code === 'P2025') {
+    } catch (error: unknown) {
+      if (
+        error &&
+        typeof error === 'object' &&
+        'code' in error &&
+        error.code === 'P2025'
+      ) {
         throw new NotFoundException('Testimony not found');
       }
       console.error('Error reporting testimony:', error);
@@ -525,8 +587,13 @@ export class TestimonyService {
       });
 
       return testimony;
-    } catch (error: any) {
-      if (error.code === 'P2025') {
+    } catch (error: unknown) {
+      if (
+        error &&
+        typeof error === 'object' &&
+        'code' in error &&
+        error.code === 'P2025'
+      ) {
         throw new NotFoundException('Testimony not found');
       }
       console.error('Error requesting feedback:', error);

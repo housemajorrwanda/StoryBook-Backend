@@ -18,8 +18,7 @@ export class RegisterDto {
   @IsEmail({}, { message: 'Please provide a valid email address' })
   @IsNotEmpty({ message: 'Email is required' })
   @MaxLength(255, { message: 'Email must not exceed 255 characters' })
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
-  @Transform(({ value }) => value?.trim().toLowerCase())
+  @Transform(({ value }: { value: string }) => value?.trim().toLowerCase())
   email: string;
 
   @ApiProperty({
@@ -46,8 +45,7 @@ export class RegisterDto {
   @IsString({ message: 'Full name must be a string' })
   @IsNotEmpty({ message: 'Full name is required' })
   @MaxLength(100, { message: 'Full name must not exceed 100 characters' })
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
-  @Transform(({ value }) => value?.trim())
+  @Transform(({ value }: { value: string }) => value?.trim())
   fullName: string;
 
   @ApiProperty({
@@ -58,7 +56,6 @@ export class RegisterDto {
   @IsString({ message: 'Resident place must be a string' })
   @IsOptional()
   @MaxLength(255, { message: 'Resident place must not exceed 255 characters' })
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
-  @Transform(({ value }) => value?.trim())
+  @Transform(({ value }: { value: string }) => value?.trim())
   residentPlace?: string;
 }

@@ -10,8 +10,10 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
       await this.$connect();
       this.logger.log('Successfully connected to database');
     } catch (error) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      this.logger.error('Failed to connect to database:', error.message);
+      this.logger.error(
+        'Failed to connect to database:',
+        error instanceof Error ? error.message : 'Unknown error',
+      );
       if (process.env.NODE_ENV !== 'production') {
         this.logger.warn(
           'Continuing without database connection in development mode',

@@ -26,11 +26,11 @@ import { CreateTestimonyDto } from './dto/create-testimony.dto';
 import { UpdateTestimonyDto } from './dto/update-testimony.dto';
 import { TestimonyResponseDto } from './dto/testimony-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { 
-  ApproveTestimonyDto, 
-  RejectTestimonyDto, 
-  ReportTestimonyDto, 
-  RequestFeedbackDto 
+import {
+  ApproveTestimonyDto,
+  RejectTestimonyDto,
+  ReportTestimonyDto,
+  RequestFeedbackDto,
 } from './dto/admin-action.dto';
 
 @ApiTags('Testimonies')
@@ -49,7 +49,10 @@ export class TestimonyController {
     status: 400,
     description: 'Bad request - validation failed',
   })
-  async create(@Request() req, @Body() createTestimonyDto: CreateTestimonyDto) {
+  async create(
+    @Request() req: { user?: { userId: number } },
+    @Body() createTestimonyDto: CreateTestimonyDto,
+  ) {
     // Allow both authenticated and anonymous submissions
     const userId = req.user?.userId || null;
     return this.testimonyService.create(userId, createTestimonyDto);
@@ -57,8 +60,16 @@ export class TestimonyController {
 
   @Get()
   @ApiOperation({ summary: 'Get all testimonies (with optional filters)' })
-  @ApiQuery({ name: 'submissionType', required: false, enum: ['written', 'audio', 'video'] })
-  @ApiQuery({ name: 'status', required: false, enum: ['pending', 'approved', 'rejected'] })
+  @ApiQuery({
+    name: 'submissionType',
+    required: false,
+    enum: ['written', 'audio', 'video'],
+  })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: ['pending', 'approved', 'rejected'],
+  })
   @ApiQuery({ name: 'userId', required: false, type: Number })
   @ApiQuery({ name: 'isPublished', required: false, type: Boolean })
   @ApiResponse({
@@ -72,7 +83,12 @@ export class TestimonyController {
     @Query('userId') userId?: string,
     @Query('isPublished') isPublished?: string,
   ) {
-    const filters: any = {};
+    const filters: {
+      submissionType?: string;
+      status?: string;
+      userId?: number;
+      isPublished?: boolean;
+    } = {};
 
     if (submissionType) filters.submissionType = submissionType;
     if (status) filters.status = status;
@@ -95,7 +111,7 @@ export class TestimonyController {
     status: 401,
     description: 'Unauthorized',
   })
-  async findMyTestimonies(@Request() req) {
+  async findMyTestimonies(@Request() req: { user: { userId: number } }) {
     return this.testimonyService.findUserTestimonies(req.user.userId);
   }
 
@@ -189,10 +205,14 @@ export class TestimonyController {
   })
   async update(
     @Param('id', ParseIntPipe) id: number,
-    @Request() req,
+    @Request() req: { user: { userId: number } },
     @Body() updateTestimonyDto: UpdateTestimonyDto,
   ) {
-    return this.testimonyService.update(id, req.user.userId, updateTestimonyDto);
+    return this.testimonyService.update(
+      id,
+      req.user.userId,
+      updateTestimonyDto,
+    );
   }
 
   @Delete(':id')
@@ -217,7 +237,10 @@ export class TestimonyController {
     status: 404,
     description: 'Testimony not found',
   })
-  async remove(@Param('id', ParseIntPipe) id: number, @Request() req) {
+  async remove(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { userId: number } },
+  ) {
     return this.testimonyService.remove(id, req.user.userId);
   }
 
@@ -272,7 +295,10 @@ export class TestimonyController {
     status: 404,
     description: 'Testimony not found',
   })
-  async togglePublish(@Param('id', ParseIntPipe) id: number, @Request() req) {
+  async togglePublish(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { userId: number } },
+  ) {
     return this.testimonyService.togglePublish(id, req.user.userId);
   }
 
@@ -296,10 +322,14 @@ export class TestimonyController {
   })
   async approveTestimony(
     @Param('id', ParseIntPipe) id: number,
-    @Request() req,
+    @Request() req: { user: { userId: number } },
     @Body() approveDto: ApproveTestimonyDto,
   ) {
-    return this.testimonyService.approveTestimony(id, req.user.userId, approveDto.feedback);
+    return this.testimonyService.approveTestimony(
+      id,
+      req.user.userId,
+      approveDto.feedback,
+    );
   }
 
   @Post(':id/reject')
@@ -326,10 +356,14 @@ export class TestimonyController {
   })
   async rejectTestimony(
     @Param('id', ParseIntPipe) id: number,
-    @Request() req,
+    @Request() req: { user: { userId: number } },
     @Body() rejectDto: RejectTestimonyDto,
   ) {
-    return this.testimonyService.rejectTestimony(id, req.user.userId, rejectDto.reason);
+    return this.testimonyService.rejectTestimony(
+      id,
+      req.user.userId,
+      rejectDto.reason,
+    );
   }
 
   @Post(':id/report')
@@ -356,10 +390,14 @@ export class TestimonyController {
   })
   async reportTestimony(
     @Param('id', ParseIntPipe) id: number,
-    @Request() req,
+    @Request() req: { user: { userId: number } },
     @Body() reportDto: ReportTestimonyDto,
   ) {
-    return this.testimonyService.reportTestimony(id, req.user.userId, reportDto.reason);
+    return this.testimonyService.reportTestimony(
+      id,
+      req.user.userId,
+      reportDto.reason,
+    );
   }
 
   @Post(':id/request-feedback')
@@ -386,9 +424,13 @@ export class TestimonyController {
   })
   async requestFeedback(
     @Param('id', ParseIntPipe) id: number,
-    @Request() req,
+    @Request() req: { user: { userId: number } },
     @Body() feedbackDto: RequestFeedbackDto,
   ) {
-    return this.testimonyService.requestFeedback(id, req.user.userId, feedbackDto.message);
+    return this.testimonyService.requestFeedback(
+      id,
+      req.user.userId,
+      feedbackDto.message,
+    );
   }
 }
