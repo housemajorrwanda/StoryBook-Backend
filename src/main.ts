@@ -7,18 +7,30 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.enableCors();
-  
-  app.useGlobalPipes(new ValidationPipe({
-    whitelist: true,
-    transform: true,
-    transformOptions: {
-      enableImplicitConversion: true,
-    },
-  }));
-  
+
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+      transformOptions: {
+        enableImplicitConversion: true,
+      },
+    }),
+  );
+
   // Apply global exception filter for better error responses
   app.useGlobalFilters(new HttpExceptionFilter());
-  
+
+  // Add global error handler for unhandled exceptions
+  process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  });
+
+  process.on('uncaughtException', (error) => {
+    console.error('Uncaught Exception:', error);
+    process.exit(1);
+  });
+
   const config = new DocumentBuilder()
     .setTitle('StoryBook API')
     .setVersion('1.0.1')
@@ -38,12 +50,16 @@ async function bootstrap() {
       'JWT-auth',
     )
     .build();
-    
+
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document);
-  
+
   await app.listen(process.env.PORT ?? 3009);
-  console.log(`🚀 Application is running on: http://localhost:${process.env.PORT ?? 3009}`);
-  console.log(`📚 Swagger documentation: http://localhost:${process.env.PORT ?? 3009}/api`);
+  console.log(
+    `🚀 Application is running on: http://localhost:${process.env.PORT ?? 3009}`,
+  );
+  console.log(
+    `📚 Swagger documentation: http://localhost:${process.env.PORT ?? 3009}/api`,
+  );
 }
 bootstrap();
