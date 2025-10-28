@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
 import { Injectable, BadRequestException } from '@nestjs/common';
 import {
   v2 as cloudinary,
