@@ -18,18 +18,7 @@ async function bootstrap() {
     }),
   );
 
-  // Apply global exception filter for better error responses
   app.useGlobalFilters(new HttpExceptionFilter());
-
-  // Add global error handler for unhandled exceptions
-  process.on('unhandledRejection', (reason, promise) => {
-    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-  });
-
-  process.on('uncaughtException', (error) => {
-    console.error('Uncaught Exception:', error);
-    process.exit(1);
-  });
 
   const config = new DocumentBuilder()
     .setTitle('StoryBook API')
@@ -62,4 +51,4 @@ async function bootstrap() {
     `📚 Swagger documentation: http://localhost:${process.env.PORT ?? 3009}/api`,
   );
 }
-bootstrap();
+void bootstrap();
