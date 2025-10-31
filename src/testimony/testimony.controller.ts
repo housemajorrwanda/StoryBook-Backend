@@ -205,16 +205,35 @@ export class TestimonyController {
       videoUrl: undefined,
       videoFileName: undefined,
       videoDuration: undefined,
-    } as CreateTestimonyDto;
+    };
 
     // Upload images if provided
     if (files?.images && files.images.length > 0) {
       const uploaded = await this.uploadService.uploadMultipleImages(
         files.images,
       );
+
+      const rawDescriptions =
+        body['imagesDescriptions'] ?? body['imageDescriptions'];
+
+      let descriptions: string[] = [];
+      if (Array.isArray(rawDescriptions)) {
+        descriptions = rawDescriptions
+          .map((d) => (typeof d === 'string' ? d : ''))
+          .map((d) => d.trim())
+          .map((d) => (d.length > 500 ? d.slice(0, 500) : d));
+      } else if (typeof rawDescriptions === 'string') {
+        const d = rawDescriptions.trim();
+        descriptions = [d.length > 500 ? d.slice(0, 500) : d];
+      }
+
       dto.images = uploaded.successful.map((img, index) => ({
         imageUrl: img.url,
         imageFileName: img.fileName,
+        description:
+          typeof descriptions[index] === 'string' && descriptions[index].length
+            ? descriptions[index]
+            : undefined,
         order: index,
       }));
       // If all failed, keep images undefined
