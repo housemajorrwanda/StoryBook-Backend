@@ -22,7 +22,16 @@ import {
   ApiParam,
 } from '@nestjs/swagger';
 import { TestimonyService } from './testimony.service';
-import { CreateTestimonyDto } from './dto/create-testimony.dto';
+import { UploadService } from '../upload/upload.service';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
+import { UseInterceptors, UploadedFiles } from '@nestjs/common';
+import { ApiBody, ApiConsumes } from '@nestjs/swagger';
+import {
+  CreateTestimonyDto,
+  SubmissionType,
+  IdentityPreference,
+  RelationToEvent,
+} from './dto/create-testimony.dto';
 import { UpdateTestimonyDto } from './dto/update-testimony.dto';
 import { TestimonyResponseDto } from './dto/testimony-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -36,7 +45,10 @@ import {
 @ApiTags('Testimonies')
 @Controller('testimonies')
 export class TestimonyController {
-  constructor(private readonly testimonyService: TestimonyService) {}
+  constructor(
+    private readonly testimonyService: TestimonyService,
+    private readonly uploadService: UploadService,
+  ) {}
 
   @Post()
   @ApiOperation({ summary: 'Create a new testimony (authentication optional)' })
@@ -56,6 +68,173 @@ export class TestimonyController {
     // Allow both authenticated and anonymous submissions
     const userId = req.user?.userId || null;
     return this.testimonyService.create(userId, createTestimonyDto);
+  }
+
+  @Post('multipart')
+  @ApiOperation({
+    summary: 'Create testimony with files and fields in one request',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        submissionType: { type: 'string', enum: ['written', 'audio', 'video'] },
+        identityPreference: { type: 'string', enum: ['public', 'anonymous'] },
+        fullName: { type: 'string' },
+        relationToEvent: {
+          type: 'string',
+          enum: [
+            'Survivor',
+            'Witness',
+            'Family Member',
+            'Friend',
+            'Community Member',
+            'Other',
+          ],
+        },
+        nameOfRelative: { type: 'string' },
+        location: { type: 'string' },
+        dateOfEvent: { type: 'string', format: 'date' },
+        eventTitle: { type: 'string' },
+        eventDescription: { type: 'string' },
+        fullTestimony: { type: 'string' },
+        agreedToTerms: { type: 'boolean' },
+        images: { type: 'array', items: { type: 'string', format: 'binary' } },
+        audio: { type: 'string', format: 'binary' },
+        video: { type: 'string', format: 'binary' },
+      },
+      required: [
+        'submissionType',
+        'identityPreference',
+        'eventTitle',
+        'agreedToTerms',
+      ],
+    },
+  })
+  @UseInterceptors(
+    FileFieldsInterceptor([
+      { name: 'images', maxCount: 10 },
+      { name: 'audio', maxCount: 1 },
+      { name: 'video', maxCount: 1 },
+    ]),
+  )
+  @ApiResponse({
+    status: 201,
+    description: 'Testimony created successfully',
+    type: TestimonyResponseDto,
+  })
+  @ApiResponse({ status: 400, description: 'Bad request - validation failed' })
+  async createMultipart(
+    @Request() req: { user?: { userId: number } },
+    @UploadedFiles()
+    files: {
+      images?: Express.Multer.File[];
+      audio?: Express.Multer.File[];
+      video?: Express.Multer.File[];
+    },
+    @Body() body: Record<string, unknown>,
+  ) {
+    const userId = req.user?.userId || null;
+
+    // Safely parse enums from body
+    const submissionTypeCandidate =
+      typeof body.submissionType === 'string' ? body.submissionType : undefined;
+    const identityPreferenceCandidate =
+      typeof body.identityPreference === 'string'
+        ? body.identityPreference
+        : undefined;
+
+    const submissionType = Object.values(SubmissionType).includes(
+      (submissionTypeCandidate as SubmissionType) ?? ('' as SubmissionType),
+    )
+      ? (submissionTypeCandidate as SubmissionType)
+      : undefined;
+
+    const identityPreference = Object.values(IdentityPreference).includes(
+      (identityPreferenceCandidate as IdentityPreference) ??
+        ('' as IdentityPreference),
+    )
+      ? (identityPreferenceCandidate as IdentityPreference)
+      : undefined;
+
+    // Build DTO base from body with safe casts
+    const relationToEventCandidate =
+      typeof body.relationToEvent === 'string'
+        ? body.relationToEvent
+        : undefined;
+    const relationToEvent = Object.values(RelationToEvent).includes(
+      (relationToEventCandidate as RelationToEvent) ?? ('' as RelationToEvent),
+    )
+      ? (relationToEventCandidate as RelationToEvent)
+      : undefined;
+
+    const dto: CreateTestimonyDto = {
+      submissionType: submissionType as SubmissionType,
+      identityPreference: identityPreference as IdentityPreference,
+      fullName: typeof body.fullName === 'string' ? body.fullName : undefined,
+      relationToEvent,
+      nameOfRelative:
+        typeof body.nameOfRelative === 'string'
+          ? body.nameOfRelative
+          : undefined,
+      location: typeof body.location === 'string' ? body.location : undefined,
+      dateOfEvent:
+        typeof body.dateOfEvent === 'string'
+          ? new Date(body.dateOfEvent)
+          : undefined,
+      eventTitle:
+        typeof body.eventTitle === 'string' ? body.eventTitle : ('' as string),
+      eventDescription:
+        typeof body.eventDescription === 'string'
+          ? body.eventDescription
+          : undefined,
+      fullTestimony:
+        typeof body.fullTestimony === 'string' ? body.fullTestimony : undefined,
+      agreedToTerms:
+        body.agreedToTerms === true || body.agreedToTerms === 'true',
+      images: undefined,
+      audioUrl: undefined,
+      audioFileName: undefined,
+      audioDuration: undefined,
+      videoUrl: undefined,
+      videoFileName: undefined,
+      videoDuration: undefined,
+    } as CreateTestimonyDto;
+
+    // Upload images if provided
+    if (files?.images && files.images.length > 0) {
+      const uploaded = await this.uploadService.uploadMultipleImages(
+        files.images,
+      );
+      dto.images = uploaded.successful.map((img, index) => ({
+        imageUrl: img.url,
+        imageFileName: img.fileName,
+        order: index,
+      }));
+      // If all failed, keep images undefined
+      if (dto.images.length === 0) {
+        dto.images = undefined;
+      }
+    }
+
+    // Upload audio if submissionType is audio and file present
+    if (dto.submissionType === SubmissionType.AUDIO && files?.audio?.[0]) {
+      const a = await this.uploadService.uploadAudio(files.audio[0]);
+      dto.audioUrl = a.url;
+      dto.audioFileName = a.fileName;
+      dto.audioDuration = a.duration;
+    }
+
+    // Upload video if submissionType is video and file present
+    if (dto.submissionType === SubmissionType.VIDEO && files?.video?.[0]) {
+      const v = await this.uploadService.uploadVideo(files.video[0]);
+      dto.videoUrl = v.url;
+      dto.videoFileName = v.fileName;
+      dto.videoDuration = v.duration;
+    }
+
+    return this.testimonyService.create(userId, dto);
   }
 
   @Get()

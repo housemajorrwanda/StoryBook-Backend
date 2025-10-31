@@ -139,6 +139,9 @@ export class UploadService {
       'audio/wav',
       'audio/ogg',
       'audio/m4a',
+      'audio/x-m4a',
+      'audio/aac',
+      'audio/webm',
     ];
     if (!allowedTypes.includes(file.mimetype)) {
       throw new BadRequestException(
