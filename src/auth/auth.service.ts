@@ -26,7 +26,12 @@ export class AuthService {
     const user = await this.userService.create(registerDto);
     const { ...userWithoutPassword } = user;
 
-    const payload = { email: user.email, sub: user.id };
+    const payload = {
+      email: user.email,
+      sub: user.id,
+      fullName: user.fullName,
+      role: user.role || 'user',
+    };
     const access_token = this.jwtService.sign(payload);
 
     return {
@@ -50,7 +55,12 @@ export class AuthService {
     }
 
     const { ...userWithoutPassword } = user;
-    const payload = { email: user.email, sub: user.id };
+    const payload = {
+      email: user.email,
+      sub: user.id,
+      fullName: user.fullName,
+      role: user.role || 'user',
+    };
     const access_token = this.jwtService.sign(payload);
 
     return {
@@ -232,7 +242,12 @@ export class AuthService {
   }
 
   private generateAuthResponse(user: User): AuthResponseDto {
-    const payload = { email: user.email, sub: user.id };
+    const payload = {
+      email: user.email,
+      sub: user.id,
+      fullName: user.fullName,
+      role: user.role || 'user',
+    };
     const access_token = this.jwtService.sign(payload);
 
     // Create user object without sensitive fields

@@ -6,6 +6,7 @@ interface RequestWithUser {
   user?: {
     userId: number;
     role?: string;
+    fullName?: string | null;
   };
 }
 

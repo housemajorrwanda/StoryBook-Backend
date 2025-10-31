@@ -19,13 +19,20 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: any) {
+  async validate(payload: {
+    sub: number;
+    email?: string;
+    role?: string;
+    fullName?: string | null;
+  }) {
     try {
-      const user = await this.authService.validateUser(
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        payload.sub as number,
-      );
-      return { ...user, userId: user.id, role: user.role || 'user' };
+      const user = await this.authService.validateUser(payload.sub);
+      return {
+        ...user,
+        userId: user.id,
+        role: payload.role || user.role || 'user',
+        fullName: payload.fullName || user.fullName,
+      };
     } catch (error) {
       console.error('Error validating user:', error);
       if (error instanceof Error) {
