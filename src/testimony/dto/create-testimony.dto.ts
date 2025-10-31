@@ -32,8 +32,8 @@ export enum RelationToEvent {
   SURVIVOR = 'Survivor',
   WITNESS = 'Witness',
   FAMILY_MEMBER = 'Family Member',
-  FRIEND = 'Friend',
   COMMUNITY_MEMBER = 'Community Member',
+  RESCUER = 'Rescuer',
   OTHER = 'Other',
 }
 

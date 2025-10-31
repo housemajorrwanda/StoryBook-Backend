@@ -159,15 +159,20 @@ export class TestimonyController {
       : undefined;
 
     // Build DTO base from body with safe casts
-    const relationToEventCandidate =
+    const relationMap = {
+      survivor: RelationToEvent.SURVIVOR,
+      witness: RelationToEvent.WITNESS,
+      family_member: RelationToEvent.FAMILY_MEMBER,
+      community_member: RelationToEvent.COMMUNITY_MEMBER,
+      rescuer: RelationToEvent.RESCUER,
+      other: RelationToEvent.OTHER,
+    } as const satisfies Record<string, RelationToEvent>;
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const relationToEvent: RelationToEvent | undefined =
       typeof body.relationToEvent === 'string'
-        ? body.relationToEvent
+        ? (relationMap[String(body.relationToEvent).toLowerCase()] ?? undefined)
         : undefined;
-    const relationToEvent = Object.values(RelationToEvent).includes(
-      (relationToEventCandidate as RelationToEvent) ?? ('' as RelationToEvent),
-    )
-      ? (relationToEventCandidate as RelationToEvent)
-      : undefined;
 
     const dto: CreateTestimonyDto = {
       submissionType: submissionType as SubmissionType,
