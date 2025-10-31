@@ -61,15 +61,6 @@ export class TestimonyController {
     status: 400,
     description: 'Bad request - validation failed',
   })
-  async create(
-    @Request() req: { user?: { userId: number } },
-    @Body() createTestimonyDto: CreateTestimonyDto,
-  ) {
-    // Allow both authenticated and anonymous submissions
-    const userId = req.user?.userId || null;
-    return this.testimonyService.create(userId, createTestimonyDto);
-  }
-
   @Post('multipart')
   @ApiOperation({
     summary: 'Create testimony with files and fields in one request',
