@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
 import { Injectable, BadRequestException } from '@nestjs/common';
 import {
   v2 as cloudinary,
@@ -44,6 +43,83 @@ export class UploadService {
       console.error('Error uploading image to Cloudinary:', error);
       throw new BadRequestException('Failed to upload image');
     }
+  }
+
+  async uploadMultipleImages(files: Express.Multer.File[]): Promise<{
+    successful: Array<{
+      url: string;
+      fileName: string;
+      publicId: string;
+    }>;
+    failed: Array<{
+      fileName: string;
+      error: string;
+    }>;
+  }> {
+    if (!files || files.length === 0) {
+      throw new BadRequestException('No files provided');
+    }
+
+    const successful: Array<{
+      url: string;
+      fileName: string;
+      publicId: string;
+    }> = [];
+
+    const failed: Array<{
+      fileName: string;
+      error: string;
+    }> = [];
+
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
+    const maxSize = 5 * 1024 * 1024; // 5MB
+
+    // Process each file
+    for (const file of files) {
+      try {
+        // Validate file type
+        if (!allowedTypes.includes(file.mimetype)) {
+          failed.push({
+            fileName: file.originalname,
+            error:
+              'Invalid file type. Only JPEG, PNG, and WebP images are allowed',
+          });
+          continue;
+        }
+
+        // Validate file size
+        if (file.size > maxSize) {
+          failed.push({
+            fileName: file.originalname,
+            error: 'File size exceeds 5MB limit',
+          });
+          continue;
+        }
+
+        // Upload to Cloudinary
+        const result = await this.uploadToCloudinary(
+          file,
+          'testimonies/images',
+        );
+
+        successful.push({
+          url: result.secure_url,
+          fileName: file.originalname,
+          publicId: result.public_id,
+        });
+      } catch (error) {
+        console.error(
+          `Error uploading ${file.originalname} to Cloudinary:`,
+          error,
+        );
+        failed.push({
+          fileName: file.originalname,
+          error: 'Failed to upload image',
+        });
+      }
+    }
+
+    return { successful, failed };
   }
 
   async uploadAudio(file: Express.Multer.File): Promise<{
