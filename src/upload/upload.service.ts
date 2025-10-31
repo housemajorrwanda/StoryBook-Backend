@@ -8,43 +8,6 @@ import { Readable } from 'stream';
 
 @Injectable()
 export class UploadService {
-  async uploadImage(file: Express.Multer.File): Promise<{
-    url: string;
-    fileName: string;
-    publicId: string;
-  }> {
-    if (!file) {
-      throw new BadRequestException('No file provided');
-    }
-
-    // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
-    if (!allowedTypes.includes(file.mimetype)) {
-      throw new BadRequestException(
-        'Invalid file type. Only JPEG, PNG, and WebP images are allowed',
-      );
-    }
-
-    // Validate file size (5MB)
-    const maxSize = 5 * 1024 * 1024;
-    if (file.size > maxSize) {
-      throw new BadRequestException('File size exceeds 5MB limit');
-    }
-
-    try {
-      const result = await this.uploadToCloudinary(file, 'testimonies/images');
-
-      return {
-        url: result.secure_url,
-        fileName: file.originalname,
-        publicId: result.public_id,
-      };
-    } catch (error) {
-      console.error('Error uploading image to Cloudinary:', error);
-      throw new BadRequestException('Failed to upload image');
-    }
-  }
-
   async uploadMultipleImages(files: Express.Multer.File[]): Promise<{
     successful: Array<{
       url: string;
@@ -165,7 +128,9 @@ export class UploadService {
       return {
         url: result.secure_url,
         fileName: file.originalname,
-        duration: Math.round(result.duration || 0),
+        duration: Math.round(
+          typeof result.duration === 'number' ? result.duration : 0,
+        ),
         publicId: result.public_id,
       };
     } catch (error) {
@@ -214,7 +179,9 @@ export class UploadService {
       return {
         url: result.secure_url,
         fileName: file.originalname,
-        duration: Math.round(result.duration || 0),
+        duration: Math.round(
+          typeof result.duration === 'number' ? result.duration : 0,
+        ),
         publicId: result.public_id,
       };
     } catch (error) {

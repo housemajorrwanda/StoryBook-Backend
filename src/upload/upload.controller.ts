@@ -33,41 +33,6 @@ interface MultipleImagesUploadResponse {
 export class UploadController {
   constructor(private readonly uploadService: UploadService) {}
 
-  @Post('image')
-  @UseInterceptors(FileInterceptor('file'))
-  @ApiOperation({ summary: 'Upload an image to Cloudinary' })
-  @ApiConsumes('multipart/form-data')
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        file: {
-          type: 'string',
-          format: 'binary',
-        },
-      },
-    },
-  })
-  @ApiResponse({
-    status: 201,
-    description: 'Image uploaded successfully',
-    schema: {
-      type: 'object',
-      properties: {
-        url: { type: 'string' },
-        fileName: { type: 'string' },
-        publicId: { type: 'string' },
-      },
-    },
-  })
-  @ApiResponse({ status: 400, description: 'Bad request - invalid file' })
-  async uploadImage(@UploadedFile() file: Express.Multer.File) {
-    if (!file) {
-      throw new BadRequestException('No file uploaded');
-    }
-    return this.uploadService.uploadImage(file);
-  }
-
   @Post('images')
   @UseInterceptors(FilesInterceptor('files', 10))
   @ApiOperation({ summary: 'Upload multiple images to Cloudinary' })
