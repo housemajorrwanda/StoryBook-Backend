@@ -178,7 +178,7 @@ export class AuthController {
   }
 
   @Get('google/success')
-  @ApiOperation({ summary: 'Google OAuth success endpoint (for testing)' })
+  @ApiOperation({ summary: 'Google OAuth success endpoint' })
   @ApiResponse({
     status: 200,
     description: 'Returns authentication result for successful Google OAuth',

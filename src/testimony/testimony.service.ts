@@ -227,7 +227,21 @@ export class TestimonyService {
         throw new NotFoundException('Testimony not found');
       }
 
-      return testimony;
+      // Automatically increment impression count when viewing a testimony
+      await this.prisma.testimony.update({
+        where: { id },
+        data: {
+          impressions: {
+            increment: 1,
+          },
+        },
+      });
+
+      // Return testimony with updated impression count
+      return {
+        ...testimony,
+        impressions: testimony.impressions + 1,
+      };
     } catch (error: unknown) {
       if (
         error &&
@@ -239,74 +253,6 @@ export class TestimonyService {
       }
       console.error('Error fetching testimony:', error);
       throw new InternalServerErrorException('Failed to fetch testimony');
-    }
-  }
-
-  async incrementImpression(id: number) {
-    if (!id || id <= 0) {
-      throw new BadRequestException('Invalid testimony ID');
-    }
-
-    try {
-      const testimony = await this.prisma.testimony.update({
-        where: { id },
-        data: {
-          impressions: {
-            increment: 1,
-          },
-        },
-        select: {
-          id: true,
-          impressions: true,
-        },
-      });
-
-      return testimony;
-    } catch (error: unknown) {
-      if (
-        error &&
-        typeof error === 'object' &&
-        'code' in error &&
-        error.code === 'P2025'
-      ) {
-        throw new NotFoundException('Testimony not found');
-      }
-      console.error('Error incrementing impression:', error);
-      throw new InternalServerErrorException('Failed to increment impression');
-    }
-  }
-
-  async getImpressions(id: number) {
-    if (!id || id <= 0) {
-      throw new BadRequestException('Invalid testimony ID');
-    }
-
-    try {
-      const testimony = await this.prisma.testimony.findUnique({
-        where: { id },
-        select: {
-          id: true,
-          impressions: true,
-          eventTitle: true,
-        },
-      });
-
-      if (!testimony) {
-        throw new NotFoundException('Testimony not found');
-      }
-
-      return testimony;
-    } catch (error: unknown) {
-      if (
-        error &&
-        typeof error === 'object' &&
-        'status' in error &&
-        error.status === 404
-      ) {
-        throw error;
-      }
-      console.error('Error fetching impressions:', error);
-      throw new InternalServerErrorException('Failed to fetch impressions');
     }
   }
 
