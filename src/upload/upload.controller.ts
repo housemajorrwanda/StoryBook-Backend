@@ -3,7 +3,6 @@ import {
   Post,
   UseInterceptors,
   UploadedFile,
-  UseGuards,
   BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -11,17 +10,13 @@ import {
   ApiTags,
   ApiOperation,
   ApiResponse,
-  ApiBearerAuth,
   ApiConsumes,
   ApiBody,
 } from '@nestjs/swagger';
 import { UploadService } from './upload.service';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('Upload')
 @Controller('upload')
-@UseGuards(JwtAuthGuard)
-@ApiBearerAuth('JWT-auth')
 export class UploadController {
   constructor(private readonly uploadService: UploadService) {}
 
@@ -53,7 +48,6 @@ export class UploadController {
     },
   })
   @ApiResponse({ status: 400, description: 'Bad request - invalid file' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
   async uploadImage(@UploadedFile() file: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException('No file uploaded');
@@ -90,7 +84,6 @@ export class UploadController {
     },
   })
   @ApiResponse({ status: 400, description: 'Bad request - invalid file' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
   async uploadAudio(@UploadedFile() file: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException('No file uploaded');
@@ -127,7 +120,6 @@ export class UploadController {
     },
   })
   @ApiResponse({ status: 400, description: 'Bad request - invalid file' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
   async uploadVideo(@UploadedFile() file: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException('No file uploaded');
