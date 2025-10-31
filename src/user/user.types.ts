@@ -10,6 +10,7 @@ export interface User {
   googleId?: string | null;
   avatar?: string | null;
   provider?: string;
+  role?: string;
   createdAt: Date;
   updatedAt: Date;
 }

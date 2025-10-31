@@ -26,6 +26,7 @@ model User {
   googleId          String?      @unique
   avatar            String?      // Profile picture URL
   provider          String       @default("local") // "local" or "google"
+  role              String       @default("user") // "user" or "admin"
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
   

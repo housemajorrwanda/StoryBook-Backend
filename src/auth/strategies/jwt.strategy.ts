@@ -25,7 +25,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         payload.sub as number,
       );
-      return { ...user, userId: user.id };
+      return { ...user, userId: user.id, role: user.role || 'user' };
     } catch (error) {
       console.error('Error validating user:', error);
       if (error instanceof Error) {

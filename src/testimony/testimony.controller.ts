@@ -35,6 +35,8 @@ import {
 import { UpdateTestimonyDto } from './dto/update-testimony.dto';
 import { TestimonyResponseDto } from './dto/testimony-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 import {
   ApproveTestimonyDto,
   RejectTestimonyDto,
@@ -253,7 +255,10 @@ export class TestimonyController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Get all testimonies (with optional filters)' })
+  @ApiOperation({
+    summary:
+      'Get all testimonies (public: only published approved, authenticated: all with filters)',
+  })
   @ApiQuery({
     name: 'submissionType',
     required: false,
@@ -272,6 +277,7 @@ export class TestimonyController {
     type: [TestimonyResponseDto],
   })
   async findAll(
+    @Request() req: { user?: { userId: number; role?: string } },
     @Query('submissionType') submissionType?: string,
     @Query('status') status?: string,
     @Query('userId') userId?: string,
@@ -289,7 +295,8 @@ export class TestimonyController {
     if (userId) filters.userId = parseInt(userId, 10);
     if (isPublished !== undefined) filters.isPublished = isPublished === 'true';
 
-    return this.testimonyService.findAll(filters);
+    const userRole = req.user?.role;
+    return this.testimonyService.findAll(filters, userRole);
   }
 
   @Get('my-testimonies')
@@ -305,12 +312,19 @@ export class TestimonyController {
     status: 401,
     description: 'Unauthorized',
   })
-  async findMyTestimonies(@Request() req: { user: { userId: number } }) {
-    return this.testimonyService.findUserTestimonies(req.user.userId);
+  async findMyTestimonies(
+    @Request() req: { user: { userId: number; role?: string } },
+  ) {
+    return this.testimonyService.findUserTestimonies(
+      req.user.userId,
+      req.user.role,
+    );
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Get a single testimony by ID' })
+  @ApiOperation({
+    summary: 'Get a single testimony by ID (public: only published approved)',
+  })
   @ApiParam({ name: 'id', type: Number })
   @ApiResponse({
     status: 200,
@@ -321,8 +335,12 @@ export class TestimonyController {
     status: 404,
     description: 'Testimony not found',
   })
-  async findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.testimonyService.findOne(id);
+  async findOne(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user?: { userId: number; role?: string } },
+  ) {
+    const userRole = req.user?.role;
+    return this.testimonyService.findOne(id, userRole);
   }
 
   @Post(':id/impression')
@@ -439,7 +457,8 @@ export class TestimonyController {
   }
 
   @Patch(':id/status')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Update testimony status (admin only)' })
   @ApiParam({ name: 'id', type: Number })
@@ -457,14 +476,19 @@ export class TestimonyController {
     description: 'Unauthorized',
   })
   @ApiResponse({
+    status: 403,
+    description: 'Forbidden - admin access required',
+  })
+  @ApiResponse({
     status: 404,
     description: 'Testimony not found',
   })
   async updateStatus(
     @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { userId: number; role?: string } },
     @Body('status') status: string,
   ) {
-    return this.testimonyService.updateStatus(id, status);
+    return this.testimonyService.updateStatus(id, status, req.user.userId);
   }
 
   @Patch(':id/toggle-publish')
@@ -497,7 +521,8 @@ export class TestimonyController {
   }
 
   @Post(':id/approve')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Approve testimony (admin only)' })
   @ApiParam({ name: 'id', type: Number })
@@ -511,12 +536,16 @@ export class TestimonyController {
     description: 'Unauthorized',
   })
   @ApiResponse({
+    status: 403,
+    description: 'Forbidden - admin access required',
+  })
+  @ApiResponse({
     status: 404,
     description: 'Testimony not found',
   })
   async approveTestimony(
     @Param('id', ParseIntPipe) id: number,
-    @Request() req: { user: { userId: number } },
+    @Request() req: { user: { userId: number; role?: string } },
     @Body() approveDto: ApproveTestimonyDto,
   ) {
     return this.testimonyService.approveTestimony(
@@ -527,7 +556,8 @@ export class TestimonyController {
   }
 
   @Post(':id/reject')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Reject testimony (admin only)' })
   @ApiParam({ name: 'id', type: Number })
@@ -545,12 +575,16 @@ export class TestimonyController {
     description: 'Unauthorized',
   })
   @ApiResponse({
+    status: 403,
+    description: 'Forbidden - admin access required',
+  })
+  @ApiResponse({
     status: 404,
     description: 'Testimony not found',
   })
   async rejectTestimony(
     @Param('id', ParseIntPipe) id: number,
-    @Request() req: { user: { userId: number } },
+    @Request() req: { user: { userId: number; role?: string } },
     @Body() rejectDto: RejectTestimonyDto,
   ) {
     return this.testimonyService.rejectTestimony(
@@ -561,7 +595,8 @@ export class TestimonyController {
   }
 
   @Post(':id/report')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Report testimony (admin only)' })
   @ApiParam({ name: 'id', type: Number })
@@ -579,12 +614,16 @@ export class TestimonyController {
     description: 'Unauthorized',
   })
   @ApiResponse({
+    status: 403,
+    description: 'Forbidden - admin access required',
+  })
+  @ApiResponse({
     status: 404,
     description: 'Testimony not found',
   })
   async reportTestimony(
     @Param('id', ParseIntPipe) id: number,
-    @Request() req: { user: { userId: number } },
+    @Request() req: { user: { userId: number; role?: string } },
     @Body() reportDto: ReportTestimonyDto,
   ) {
     return this.testimonyService.reportTestimony(
@@ -595,7 +634,8 @@ export class TestimonyController {
   }
 
   @Post(':id/request-feedback')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Request feedback from user (admin only)' })
   @ApiParam({ name: 'id', type: Number })
@@ -613,12 +653,16 @@ export class TestimonyController {
     description: 'Unauthorized',
   })
   @ApiResponse({
+    status: 403,
+    description: 'Forbidden - admin access required',
+  })
+  @ApiResponse({
     status: 404,
     description: 'Testimony not found',
   })
   async requestFeedback(
     @Param('id', ParseIntPipe) id: number,
-    @Request() req: { user: { userId: number } },
+    @Request() req: { user: { userId: number; role?: string } },
     @Body() feedbackDto: RequestFeedbackDto,
   ) {
     return this.testimonyService.requestFeedback(

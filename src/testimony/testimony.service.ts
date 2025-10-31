@@ -90,12 +90,15 @@ export class TestimonyService {
     }
   }
 
-  async findAll(filters?: {
-    submissionType?: string;
-    status?: string;
-    userId?: number;
-    isPublished?: boolean;
-  }) {
+  async findAll(
+    filters?: {
+      submissionType?: string;
+      status?: string;
+      userId?: number;
+      isPublished?: boolean;
+    },
+    userRole?: string,
+  ) {
     try {
       const where: {
         submissionType?: string;
@@ -104,11 +107,18 @@ export class TestimonyService {
         isPublished?: boolean;
       } = {};
 
+      // If user is not admin, only show published testimonies
+      if (userRole !== 'admin') {
+        where.isPublished = true;
+        where.status = 'approved';
+      }
+
       if (filters?.submissionType) {
         where.submissionType = filters.submissionType;
       }
 
-      if (filters?.status) {
+      // Only admins can filter by status
+      if (filters?.status && userRole === 'admin') {
         where.status = filters.status;
       }
 
@@ -116,7 +126,8 @@ export class TestimonyService {
         where.userId = filters.userId;
       }
 
-      if (filters?.isPublished !== undefined) {
+      // Only admins can override isPublished filter
+      if (filters?.isPublished !== undefined && userRole === 'admin') {
         where.isPublished = filters.isPublished;
       }
 
@@ -153,7 +164,7 @@ export class TestimonyService {
     }
   }
 
-  async findOne(id: number) {
+  async findOne(id: number, userRole?: string) {
     if (!id || id <= 0) {
       throw new BadRequestException('Invalid testimony ID');
     }
@@ -176,6 +187,14 @@ export class TestimonyService {
       });
 
       if (!testimony) {
+        throw new NotFoundException('Testimony not found');
+      }
+
+      // If user is not admin, only show published and approved testimonies
+      if (
+        userRole !== 'admin' &&
+        (!testimony.isPublished || testimony.status !== 'approved')
+      ) {
         throw new NotFoundException('Testimony not found');
       }
 
@@ -358,15 +377,15 @@ export class TestimonyService {
     }
   }
 
-  async findUserTestimonies(userId: number) {
+  async findUserTestimonies(userId: number, userRole?: string) {
     if (!userId || userId <= 0) {
       throw new BadRequestException('Invalid user ID');
     }
 
-    return this.findAll({ userId });
+    return this.findAll({ userId }, userRole);
   }
 
-  async updateStatus(id: number, status: string) {
+  async updateStatus(id: number, status: string, adminId: number) {
     if (!id || id <= 0) {
       throw new BadRequestException('Invalid testimony ID');
     }
@@ -381,7 +400,11 @@ export class TestimonyService {
     try {
       const testimony = await this.prisma.testimony.update({
         where: { id },
-        data: { status },
+        data: {
+          status,
+          reviewedBy: adminId,
+          reviewedAt: new Date(),
+        },
         include: {
           images: {
             orderBy: { order: 'asc' },
@@ -448,6 +471,10 @@ export class TestimonyService {
   async approveTestimony(id: number, adminId: number, feedback?: string) {
     if (!id || id <= 0) {
       throw new BadRequestException('Invalid testimony ID');
+    }
+
+    if (!adminId || adminId <= 0) {
+      throw new BadRequestException('Invalid admin ID');
     }
 
     try {
