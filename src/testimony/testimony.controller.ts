@@ -257,7 +257,25 @@ export class TestimonyController {
   @Get()
   @ApiOperation({
     summary:
-      'Get all testimonies (public: only published approved, authenticated: all with filters)',
+      'Get all testimonies with pagination and optional filters (frontend handles role-based access control)',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number (default: 1)',
+  })
+  @ApiQuery({
+    name: 'pageSize',
+    required: false,
+    type: Number,
+    description: 'Items per page (default: 10)',
+  })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    type: String,
+    description: 'Search in eventTitle, eventDescription, or fullName',
   })
   @ApiQuery({
     name: 'submissionType',
@@ -271,32 +289,75 @@ export class TestimonyController {
   })
   @ApiQuery({ name: 'userId', required: false, type: Number })
   @ApiQuery({ name: 'isPublished', required: false, type: Boolean })
+  @ApiQuery({
+    name: 'dateFrom',
+    required: false,
+    type: String,
+    description: 'Filter from date (ISO format)',
+  })
+  @ApiQuery({
+    name: 'dateTo',
+    required: false,
+    type: String,
+    description: 'Filter to date (ISO format)',
+  })
   @ApiResponse({
     status: 200,
-    description: 'List of testimonies',
-    type: [TestimonyResponseDto],
+    description: 'Paginated list of testimonies',
+    schema: {
+      type: 'object',
+      properties: {
+        data: {
+          type: 'array',
+          items: { $ref: '#/components/schemas/TestimonyResponseDto' },
+        },
+        meta: {
+          type: 'object',
+          properties: {
+            page: { type: 'number' },
+            pageSize: { type: 'number' },
+            total: { type: 'number' },
+            totalPages: { type: 'number' },
+          },
+        },
+      },
+    },
   })
   async findAll(
     @Request() req: { user?: { userId: number; role?: string } },
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+    @Query('search') search?: string,
     @Query('submissionType') submissionType?: string,
     @Query('status') status?: string,
     @Query('userId') userId?: string,
     @Query('isPublished') isPublished?: string,
+    @Query('dateFrom') dateFrom?: string,
+    @Query('dateTo') dateTo?: string,
   ) {
     const filters: {
+      page?: number;
+      pageSize?: number;
+      search?: string;
       submissionType?: string;
       status?: string;
       userId?: number;
       isPublished?: boolean;
+      dateFrom?: string;
+      dateTo?: string;
     } = {};
 
+    if (page) filters.page = parseInt(page, 10);
+    if (pageSize) filters.pageSize = parseInt(pageSize, 10);
+    if (search) filters.search = search;
     if (submissionType) filters.submissionType = submissionType;
     if (status) filters.status = status;
     if (userId) filters.userId = parseInt(userId, 10);
     if (isPublished !== undefined) filters.isPublished = isPublished === 'true';
+    if (dateFrom) filters.dateFrom = dateFrom;
+    if (dateTo) filters.dateTo = dateTo;
 
-    const userRole = req.user?.role;
-    return this.testimonyService.findAll(filters, userRole);
+    return this.testimonyService.findAll(filters);
   }
 
   @Get('my-testimonies')
@@ -315,15 +376,12 @@ export class TestimonyController {
   async findMyTestimonies(
     @Request() req: { user: { userId: number; role?: string } },
   ) {
-    return this.testimonyService.findUserTestimonies(
-      req.user.userId,
-      req.user.role,
-    );
+    return this.testimonyService.findUserTestimonies(req.user.userId);
   }
 
   @Get(':id')
   @ApiOperation({
-    summary: 'Get a single testimony by ID (public: only published approved)',
+    summary: 'Get a single testimony by ID',
   })
   @ApiParam({ name: 'id', type: Number })
   @ApiResponse({
@@ -335,12 +393,8 @@ export class TestimonyController {
     status: 404,
     description: 'Testimony not found',
   })
-  async findOne(
-    @Param('id', ParseIntPipe) id: number,
-    @Request() req: { user?: { userId: number; role?: string } },
-  ) {
-    const userRole = req.user?.role;
-    return this.testimonyService.findOne(id, userRole);
+  async findOne(@Param('id', ParseIntPipe) id: number) {
+    return this.testimonyService.findOne(id);
   }
 
   @Post(':id/impression')

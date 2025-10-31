@@ -14,7 +14,6 @@ export class TestimonyService {
   constructor(private prisma: PrismaService) {}
 
   async create(userId: number | null, createTestimonyDto: CreateTestimonyDto) {
-    // Allow anonymous submissions (userId can be null)
     if (userId !== null && userId <= 0) {
       throw new BadRequestException('Invalid user ID');
     }
@@ -90,35 +89,40 @@ export class TestimonyService {
     }
   }
 
-  async findAll(
-    filters?: {
-      submissionType?: string;
-      status?: string;
-      userId?: number;
-      isPublished?: boolean;
-    },
-    userRole?: string,
-  ) {
+  async findAll(filters?: {
+    page?: number;
+    pageSize?: number;
+    search?: string;
+    submissionType?: string;
+    status?: string;
+    userId?: number;
+    isPublished?: boolean;
+    dateFrom?: string;
+    dateTo?: string;
+  }) {
     try {
+      const page = filters?.page || 1;
+      const pageSize = filters?.pageSize || 10;
+
       const where: {
         submissionType?: string;
         status?: string;
         userId?: number;
         isPublished?: boolean;
+        createdAt?: { gte?: Date; lte?: Date };
+        OR?: Array<{
+          eventTitle?: { contains: string; mode: 'insensitive' };
+          eventDescription?: { contains: string; mode: 'insensitive' };
+          fullName?: { contains: string; mode: 'insensitive' };
+        }>;
       } = {};
 
-      // If user is not admin, only show published testimonies
-      if (userRole !== 'admin') {
-        where.isPublished = true;
-        where.status = 'approved';
-      }
-
+      // Apply filters from query parameters (frontend handles role-based filtering)
       if (filters?.submissionType) {
         where.submissionType = filters.submissionType;
       }
 
-      // Only admins can filter by status
-      if (filters?.status && userRole === 'admin') {
+      if (filters?.status) {
         where.status = filters.status;
       }
 
@@ -126,29 +130,65 @@ export class TestimonyService {
         where.userId = filters.userId;
       }
 
-      // Only admins can override isPublished filter
-      if (filters?.isPublished !== undefined && userRole === 'admin') {
+      if (filters?.isPublished !== undefined) {
         where.isPublished = filters.isPublished;
       }
 
-      const testimonies = await this.prisma.testimony.findMany({
-        where,
-        include: {
-          images: {
-            orderBy: { order: 'asc' },
+      // Search filter - search in eventTitle, eventDescription, or fullName
+      if (filters?.search) {
+        where.OR = [
+          { eventTitle: { contains: filters.search, mode: 'insensitive' } },
+          {
+            eventDescription: { contains: filters.search, mode: 'insensitive' },
           },
-          user: {
-            select: {
-              id: true,
-              fullName: true,
-              residentPlace: true,
+          { fullName: { contains: filters.search, mode: 'insensitive' } },
+        ];
+      }
+
+      // Date range filters
+      if (filters?.dateFrom || filters?.dateTo) {
+        where.createdAt = {};
+        if (filters?.dateFrom) {
+          where.createdAt.gte = new Date(filters.dateFrom);
+        }
+        if (filters?.dateTo) {
+          where.createdAt.lte = new Date(filters.dateTo);
+        }
+      }
+
+      const [testimonies, total] = await Promise.all([
+        this.prisma.testimony.findMany({
+          where,
+          include: {
+            images: {
+              orderBy: { order: 'asc' },
+            },
+            user: {
+              select: {
+                id: true,
+                fullName: true,
+                residentPlace: true,
+              },
             },
           },
-        },
-        orderBy: { createdAt: 'desc' },
-      });
+          orderBy: { createdAt: 'desc' },
+          skip: (page - 1) * pageSize,
+          take: pageSize,
+        }),
+        this.prisma.testimony.count({ where }),
+      ]);
 
-      return testimonies;
+      const totalPages = Math.ceil(total / pageSize);
+
+      return {
+        data: testimonies,
+        meta: {
+          page,
+          pageSize,
+          total,
+          totalPages,
+        },
+      };
     } catch (error: unknown) {
       console.error('Error fetching testimonies:', error);
 
@@ -164,7 +204,7 @@ export class TestimonyService {
     }
   }
 
-  async findOne(id: number, userRole?: string) {
+  async findOne(id: number) {
     if (!id || id <= 0) {
       throw new BadRequestException('Invalid testimony ID');
     }
@@ -190,14 +230,7 @@ export class TestimonyService {
         throw new NotFoundException('Testimony not found');
       }
 
-      // If user is not admin, only show published and approved testimonies
-      if (
-        userRole !== 'admin' &&
-        (!testimony.isPublished || testimony.status !== 'approved')
-      ) {
-        throw new NotFoundException('Testimony not found');
-      }
-
+      // Frontend handles access control - backend returns all data
       return testimony;
     } catch (error: unknown) {
       if (
@@ -377,12 +410,12 @@ export class TestimonyService {
     }
   }
 
-  async findUserTestimonies(userId: number, userRole?: string) {
+  async findUserTestimonies(userId: number) {
     if (!userId || userId <= 0) {
       throw new BadRequestException('Invalid user ID');
     }
 
-    return this.findAll({ userId }, userRole);
+    return this.findAll({ userId });
   }
 
   async updateStatus(id: number, status: string, adminId: number) {
@@ -434,7 +467,7 @@ export class TestimonyService {
       throw new BadRequestException('Invalid testimony ID');
     }
 
-    const existingTestimony = await this.findOne(id, 'admin');
+    const existingTestimony = await this.findOne(id);
 
     try {
       const testimony = await this.prisma.testimony.update({
