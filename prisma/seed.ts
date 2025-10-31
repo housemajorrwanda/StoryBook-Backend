@@ -20,9 +20,9 @@ async function main() {
         where: { email: adminEmail },
         data: { role: 'admin' },
       });
-      console.log(`✅ Updated ${adminEmail} to admin role`);
+      console.log(`✅ Updated existing user ${adminEmail} to admin role`);
     } else {
-      console.log(`ℹ️  Admin ${adminEmail} already exists with admin role`);
+      console.log(`✅ Admin user ${adminEmail} already exists with admin role`);
     }
     return;
   }
@@ -41,8 +41,8 @@ async function main() {
       provider: 'local',
     },
   });
-
-  console.log(`✅ Created admin user: ${admin.email} (ID: ${admin.id})`);
+  console.log(`✅ Created admin user: ${adminEmail}`);
+  return admin;
 }
 
 main()
