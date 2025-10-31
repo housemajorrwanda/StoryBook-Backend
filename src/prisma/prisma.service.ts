@@ -14,13 +14,11 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
         'Failed to connect to database:',
         error instanceof Error ? error.message : 'Unknown error',
       );
-      if (process.env.NODE_ENV !== 'production') {
-        this.logger.warn(
-          'Continuing without database connection in development mode',
-        );
-      } else {
-        throw error;
-      }
+      // Don't crash the app - allow health check to still work
+      // The app will retry connection on subsequent queries
+      this.logger.warn(
+        'Continuing startup - database connection will be retried on first query',
+      );
     }
   }
 

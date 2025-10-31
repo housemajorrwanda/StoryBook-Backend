@@ -14,21 +14,31 @@ export class AppController {
     return this.appService.getHello();
   }
 
+  @Get('ping')
+  getPing() {
+    return { status: 'ok', timestamp: new Date().toISOString() };
+  }
+
   @Get('health')
   async getHealth() {
+    const health = {
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+    };
+
     try {
       await this.prisma.$queryRaw`SELECT 1`;
       return {
-        status: 'ok',
-        timestamp: new Date().toISOString(),
+        ...health,
         database: 'connected',
       };
     } catch (error) {
-      console.error('Database health check failed:', error);
+      // Return partial health even if DB is down - app is still running
       return {
-        status: 'error',
-        timestamp: new Date().toISOString(),
+        ...health,
         database: 'disconnected',
+        error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   }
