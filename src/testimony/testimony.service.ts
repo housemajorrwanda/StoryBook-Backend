@@ -360,29 +360,72 @@ export class TestimonyService {
     return this.findAll({ userId });
   }
 
-  async updateStatus(id: number, status: string, adminId: number) {
+  async updateStatus(
+    id: number,
+    status: string,
+    adminId: number,
+    feedback?: string,
+  ) {
     if (!id || id <= 0) {
       throw new BadRequestException('Invalid testimony ID');
+    }
+
+    if (!adminId || adminId <= 0) {
+      throw new BadRequestException('Invalid admin ID');
     }
 
     const validStatuses = ['pending', 'approved', 'rejected'];
     if (!validStatuses.includes(status)) {
       throw new BadRequestException(
-        'Invalid status. Must be pending, approved, or rejected',
+        `Invalid status. Must be one of: ${validStatuses.join(', ')}`,
+      );
+    }
+
+    // Require feedback when rejecting
+    if (status === 'rejected' && (!feedback || feedback.trim().length === 0)) {
+      throw new BadRequestException(
+        'Rejection reason is required. Please provide feedback on what needs to be improved.',
       );
     }
 
     try {
+      const updateData: {
+        status: string;
+        reviewedBy: number;
+        reviewedAt: Date;
+        adminFeedback?: string;
+        isPublished?: boolean;
+      } = {
+        status,
+        reviewedBy: adminId,
+        reviewedAt: new Date(),
+      };
+
+      // Handle feedback based on status
+      if (status === 'rejected') {
+        updateData.adminFeedback = feedback;
+      } else if (status === 'approved' && feedback) {
+        updateData.adminFeedback = feedback;
+      }
+
+      // Auto-publish when approving
+      if (status === 'approved') {
+        updateData.isPublished = true;
+      }
+
       const testimony = await this.prisma.testimony.update({
         where: { id },
-        data: {
-          status,
-          reviewedBy: adminId,
-          reviewedAt: new Date(),
-        },
+        data: updateData,
         include: {
           images: {
             orderBy: { order: 'asc' },
+          },
+          user: {
+            select: {
+              id: true,
+              fullName: true,
+              residentPlace: true,
+            },
           },
         },
       });
@@ -401,199 +444,6 @@ export class TestimonyService {
       throw new InternalServerErrorException(
         'Failed to update testimony status',
       );
-    }
-  }
-
-  async togglePublish(id: number) {
-    if (!id || id <= 0) {
-      throw new BadRequestException('Invalid testimony ID');
-    }
-
-    const existingTestimony = await this.findOne(id);
-
-    try {
-      const testimony = await this.prisma.testimony.update({
-        where: { id },
-        data: { isPublished: !existingTestimony.isPublished },
-        include: {
-          images: {
-            orderBy: { order: 'asc' },
-          },
-        },
-      });
-
-      return testimony;
-    } catch (error: unknown) {
-      if (
-        error &&
-        typeof error === 'object' &&
-        'code' in error &&
-        error.code === 'P2025'
-      ) {
-        throw new NotFoundException('Testimony not found');
-      }
-      console.error('Error toggling publish status:', error);
-      throw new InternalServerErrorException('Failed to toggle publish status');
-    }
-  }
-
-  async approveTestimony(id: number, adminId: number, feedback?: string) {
-    if (!id || id <= 0) {
-      throw new BadRequestException('Invalid testimony ID');
-    }
-
-    if (!adminId || adminId <= 0) {
-      throw new BadRequestException('Invalid admin ID');
-    }
-
-    try {
-      const testimony = await this.prisma.testimony.update({
-        where: { id },
-        data: {
-          status: 'approved',
-          adminFeedback: feedback,
-          reviewedBy: adminId,
-          reviewedAt: new Date(),
-        },
-        include: {
-          images: {
-            orderBy: { order: 'asc' },
-          },
-        },
-      });
-
-      return testimony;
-    } catch (error: unknown) {
-      if (
-        error &&
-        typeof error === 'object' &&
-        'code' in error &&
-        error.code === 'P2025'
-      ) {
-        throw new NotFoundException('Testimony not found');
-      }
-      console.error('Error approving testimony:', error);
-      throw new InternalServerErrorException('Failed to approve testimony');
-    }
-  }
-
-  async rejectTestimony(id: number, adminId: number, reason: string) {
-    if (!id || id <= 0) {
-      throw new BadRequestException('Invalid testimony ID');
-    }
-
-    if (!reason || reason.trim().length === 0) {
-      throw new BadRequestException('Rejection reason is required');
-    }
-
-    try {
-      const testimony = await this.prisma.testimony.update({
-        where: { id },
-        data: {
-          status: 'rejected',
-          adminFeedback: reason,
-          reviewedBy: adminId,
-          reviewedAt: new Date(),
-        },
-        include: {
-          images: {
-            orderBy: { order: 'asc' },
-          },
-        },
-      });
-
-      return testimony;
-    } catch (error: unknown) {
-      if (
-        error &&
-        typeof error === 'object' &&
-        'code' in error &&
-        error.code === 'P2025'
-      ) {
-        throw new NotFoundException('Testimony not found');
-      }
-      console.error('Error rejecting testimony:', error);
-      throw new InternalServerErrorException('Failed to reject testimony');
-    }
-  }
-
-  async reportTestimony(id: number, adminId: number, reason: string) {
-    if (!id || id <= 0) {
-      throw new BadRequestException('Invalid testimony ID');
-    }
-
-    if (!reason || reason.trim().length === 0) {
-      throw new BadRequestException('Report reason is required');
-    }
-
-    try {
-      const testimony = await this.prisma.testimony.update({
-        where: { id },
-        data: {
-          status: 'reported',
-          reportReason: reason,
-          reviewedBy: adminId,
-          reviewedAt: new Date(),
-        },
-        include: {
-          images: {
-            orderBy: { order: 'asc' },
-          },
-        },
-      });
-
-      return testimony;
-    } catch (error: unknown) {
-      if (
-        error &&
-        typeof error === 'object' &&
-        'code' in error &&
-        error.code === 'P2025'
-      ) {
-        throw new NotFoundException('Testimony not found');
-      }
-      console.error('Error reporting testimony:', error);
-      throw new InternalServerErrorException('Failed to report testimony');
-    }
-  }
-
-  async requestFeedback(id: number, adminId: number, message: string) {
-    if (!id || id <= 0) {
-      throw new BadRequestException('Invalid testimony ID');
-    }
-
-    if (!message || message.trim().length === 0) {
-      throw new BadRequestException('Feedback message is required');
-    }
-
-    try {
-      const testimony = await this.prisma.testimony.update({
-        where: { id },
-        data: {
-          status: 'feedback_requested',
-          adminFeedback: message,
-          reviewedBy: adminId,
-          reviewedAt: new Date(),
-        },
-        include: {
-          images: {
-            orderBy: { order: 'asc' },
-          },
-        },
-      });
-
-      return testimony;
-    } catch (error: unknown) {
-      if (
-        error &&
-        typeof error === 'object' &&
-        'code' in error &&
-        error.code === 'P2025'
-      ) {
-        throw new NotFoundException('Testimony not found');
-      }
-      console.error('Error requesting feedback:', error);
-      throw new InternalServerErrorException('Failed to request feedback');
     }
   }
 }

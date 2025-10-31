@@ -37,12 +37,7 @@ import { TestimonyResponseDto } from './dto/testimony-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
-import {
-  ApproveTestimonyDto,
-  RejectTestimonyDto,
-  ReportTestimonyDto,
-  RequestFeedbackDto,
-} from './dto/admin-action.dto';
+import { UpdateStatusDto } from './dto/update-status.dto';
 
 @ApiTags('Testimonies')
 @Controller('testimonies')
@@ -466,7 +461,9 @@ export class TestimonyController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
   @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Update testimony status (admin only)' })
+  @ApiOperation({
+    summary: 'Update testimony status (admin only). Approving auto-publishes.',
+  })
   @ApiParam({ name: 'id', type: Number })
   @ApiResponse({
     status: 200,
@@ -475,7 +472,8 @@ export class TestimonyController {
   })
   @ApiResponse({
     status: 400,
-    description: 'Bad request - invalid status',
+    description:
+      'Bad request - invalid status or missing required feedback/reason',
   })
   @ApiResponse({
     status: 401,
@@ -492,187 +490,13 @@ export class TestimonyController {
   async updateStatus(
     @Param('id', ParseIntPipe) id: number,
     @Request() req: { user: { userId: number; role?: string } },
-    @Body('status') status: string,
+    @Body() updateStatusDto: UpdateStatusDto,
   ) {
-    return this.testimonyService.updateStatus(id, status, req.user.userId);
-  }
-
-  @Patch(':id/toggle-publish')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('admin')
-  @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Toggle testimony publish status (admin only)' })
-  @ApiParam({ name: 'id', type: Number })
-  @ApiResponse({
-    status: 200,
-    description: 'Publish status toggled successfully',
-    type: TestimonyResponseDto,
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized',
-  })
-  @ApiResponse({
-    status: 403,
-    description: 'Forbidden - admin access required',
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Testimony not found',
-  })
-  async togglePublish(@Param('id', ParseIntPipe) id: number) {
-    return this.testimonyService.togglePublish(id);
-  }
-
-  @Post(':id/approve')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('admin')
-  @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Approve testimony (admin only)' })
-  @ApiParam({ name: 'id', type: Number })
-  @ApiResponse({
-    status: 200,
-    description: 'Testimony approved successfully',
-    type: TestimonyResponseDto,
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized',
-  })
-  @ApiResponse({
-    status: 403,
-    description: 'Forbidden - admin access required',
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Testimony not found',
-  })
-  async approveTestimony(
-    @Param('id', ParseIntPipe) id: number,
-    @Request() req: { user: { userId: number; role?: string } },
-    @Body() approveDto: ApproveTestimonyDto,
-  ) {
-    return this.testimonyService.approveTestimony(
+    return this.testimonyService.updateStatus(
       id,
+      updateStatusDto.status,
       req.user.userId,
-      approveDto.feedback,
-    );
-  }
-
-  @Post(':id/reject')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('admin')
-  @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Reject testimony (admin only)' })
-  @ApiParam({ name: 'id', type: Number })
-  @ApiResponse({
-    status: 200,
-    description: 'Testimony rejected successfully',
-    type: TestimonyResponseDto,
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Bad request - reason is required',
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized',
-  })
-  @ApiResponse({
-    status: 403,
-    description: 'Forbidden - admin access required',
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Testimony not found',
-  })
-  async rejectTestimony(
-    @Param('id', ParseIntPipe) id: number,
-    @Request() req: { user: { userId: number; role?: string } },
-    @Body() rejectDto: RejectTestimonyDto,
-  ) {
-    return this.testimonyService.rejectTestimony(
-      id,
-      req.user.userId,
-      rejectDto.reason,
-    );
-  }
-
-  @Post(':id/report')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('admin')
-  @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Report testimony (admin only)' })
-  @ApiParam({ name: 'id', type: Number })
-  @ApiResponse({
-    status: 200,
-    description: 'Testimony reported successfully',
-    type: TestimonyResponseDto,
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Bad request - reason is required',
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized',
-  })
-  @ApiResponse({
-    status: 403,
-    description: 'Forbidden - admin access required',
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Testimony not found',
-  })
-  async reportTestimony(
-    @Param('id', ParseIntPipe) id: number,
-    @Request() req: { user: { userId: number; role?: string } },
-    @Body() reportDto: ReportTestimonyDto,
-  ) {
-    return this.testimonyService.reportTestimony(
-      id,
-      req.user.userId,
-      reportDto.reason,
-    );
-  }
-
-  @Post(':id/request-feedback')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('admin')
-  @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Request feedback from user (admin only)' })
-  @ApiParam({ name: 'id', type: Number })
-  @ApiResponse({
-    status: 200,
-    description: 'Feedback requested successfully',
-    type: TestimonyResponseDto,
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Bad request - message is required',
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized',
-  })
-  @ApiResponse({
-    status: 403,
-    description: 'Forbidden - admin access required',
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Testimony not found',
-  })
-  async requestFeedback(
-    @Param('id', ParseIntPipe) id: number,
-    @Request() req: { user: { userId: number; role?: string } },
-    @Body() feedbackDto: RequestFeedbackDto,
-  ) {
-    return this.testimonyService.requestFeedback(
-      id,
-      req.user.userId,
-      feedbackDto.message,
+      updateStatusDto.feedback,
     );
   }
 }
