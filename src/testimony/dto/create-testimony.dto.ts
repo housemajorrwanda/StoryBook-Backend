@@ -143,8 +143,8 @@ export class CreateTestimonyDto {
     required: false,
   })
   @IsString({ message: 'Event description must be a string' })
-  @MaxLength(1000, {
-    message: 'Event description must not exceed 1000 characters',
+  @MaxLength(2000, {
+    message: 'Event description must not exceed 2000 characters',
   })
   @IsOptional()
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return

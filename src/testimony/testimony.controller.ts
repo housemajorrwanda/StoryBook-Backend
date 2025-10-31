@@ -462,7 +462,7 @@ export class TestimonyController {
   @Roles('admin')
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({
-    summary: 'Update testimony status (admin only). Approving auto-publishes.',
+    summary: 'Update testimony status (admin only).',
   })
   @ApiParam({ name: 'id', type: Number })
   @ApiResponse({
