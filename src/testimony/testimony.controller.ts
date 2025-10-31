@@ -256,20 +256,19 @@ export class TestimonyController {
 
   @Get()
   @ApiOperation({
-    summary:
-      'Get all testimonies with pagination and optional filters (frontend handles role-based access control)',
+    summary: 'Get all testimonies with pagination and optional filters',
   })
   @ApiQuery({
-    name: 'page',
+    name: 'skip',
     required: false,
     type: Number,
-    description: 'Page number (default: 1)',
+    description: 'Number of items to skip (default: 0)',
   })
   @ApiQuery({
-    name: 'pageSize',
+    name: 'limit',
     required: false,
     type: Number,
-    description: 'Items per page (default: 10)',
+    description: 'Max items to return (default: 10)',
   })
   @ApiQuery({
     name: 'search',
@@ -314,10 +313,9 @@ export class TestimonyController {
         meta: {
           type: 'object',
           properties: {
-            page: { type: 'number' },
-            pageSize: { type: 'number' },
+            skip: { type: 'number' },
+            limit: { type: 'number' },
             total: { type: 'number' },
-            totalPages: { type: 'number' },
           },
         },
       },
@@ -325,8 +323,8 @@ export class TestimonyController {
   })
   async findAll(
     @Request() req: { user?: { userId: number; role?: string } },
-    @Query('page') page?: string,
-    @Query('pageSize') pageSize?: string,
+    @Query('skip') skip?: string,
+    @Query('limit') limit?: string,
     @Query('search') search?: string,
     @Query('submissionType') submissionType?: string,
     @Query('status') status?: string,
@@ -336,8 +334,8 @@ export class TestimonyController {
     @Query('dateTo') dateTo?: string,
   ) {
     const filters: {
-      page?: number;
-      pageSize?: number;
+      skip?: number;
+      limit?: number;
       search?: string;
       submissionType?: string;
       status?: string;
@@ -347,8 +345,8 @@ export class TestimonyController {
       dateTo?: string;
     } = {};
 
-    if (page) filters.page = parseInt(page, 10);
-    if (pageSize) filters.pageSize = parseInt(pageSize, 10);
+    if (skip) filters.skip = parseInt(skip, 10);
+    if (limit) filters.limit = parseInt(limit, 10);
     if (search) filters.search = search;
     if (submissionType) filters.submissionType = submissionType;
     if (status) filters.status = status;

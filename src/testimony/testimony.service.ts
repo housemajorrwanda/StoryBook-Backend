@@ -90,8 +90,8 @@ export class TestimonyService {
   }
 
   async findAll(filters?: {
-    page?: number;
-    pageSize?: number;
+    skip?: number;
+    limit?: number;
     search?: string;
     submissionType?: string;
     status?: string;
@@ -101,8 +101,8 @@ export class TestimonyService {
     dateTo?: string;
   }) {
     try {
-      const page = filters?.page || 1;
-      const pageSize = filters?.pageSize || 10;
+      const skip = filters?.skip ?? 0;
+      const limit = filters?.limit ?? 10;
 
       const where: {
         submissionType?: string;
@@ -117,7 +117,7 @@ export class TestimonyService {
         }>;
       } = {};
 
-      // Apply filters from query parameters (frontend handles role-based filtering)
+      // Apply filters from query parameters
       if (filters?.submissionType) {
         where.submissionType = filters.submissionType;
       }
@@ -172,21 +172,18 @@ export class TestimonyService {
             },
           },
           orderBy: { createdAt: 'desc' },
-          skip: (page - 1) * pageSize,
-          take: pageSize,
+          skip,
+          take: limit,
         }),
         this.prisma.testimony.count({ where }),
       ]);
 
-      const totalPages = Math.ceil(total / pageSize);
-
       return {
         data: testimonies,
         meta: {
-          page,
-          pageSize,
+          skip,
+          limit,
           total,
-          totalPages,
         },
       };
     } catch (error: unknown) {
@@ -230,7 +227,6 @@ export class TestimonyService {
         throw new NotFoundException('Testimony not found');
       }
 
-      // Frontend handles access control - backend returns all data
       return testimony;
     } catch (error: unknown) {
       if (
