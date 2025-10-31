@@ -32,7 +32,9 @@ export class UserController {
   constructor(private userService: UserService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Get all users (protected route)' })
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  @ApiOperation({ summary: 'Get all users (admin only)' })
   @ApiResponse({
     status: 200,
     description: 'List of all users',
@@ -41,6 +43,10 @@ export class UserController {
   @ApiResponse({
     status: 401,
     description: 'Unauthorized',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - admin access required',
   })
   async findAll(): Promise<User[]> {
     return this.userService.findAll();

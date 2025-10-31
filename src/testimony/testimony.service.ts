@@ -429,18 +429,12 @@ export class TestimonyService {
     }
   }
 
-  async togglePublish(id: number, userId: number) {
+  async togglePublish(id: number) {
     if (!id || id <= 0) {
       throw new BadRequestException('Invalid testimony ID');
     }
 
-    const existingTestimony = await this.findOne(id);
-
-    if (existingTestimony.userId !== userId) {
-      throw new ForbiddenException(
-        'You can only publish/unpublish your own testimonies',
-      );
-    }
+    const existingTestimony = await this.findOne(id, 'admin');
 
     try {
       const testimony = await this.prisma.testimony.update({

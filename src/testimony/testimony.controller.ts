@@ -492,9 +492,10 @@ export class TestimonyController {
   }
 
   @Patch(':id/toggle-publish')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
   @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Toggle testimony publish status' })
+  @ApiOperation({ summary: 'Toggle testimony publish status (admin only)' })
   @ApiParam({ name: 'id', type: Number })
   @ApiResponse({
     status: 200,
@@ -507,17 +508,14 @@ export class TestimonyController {
   })
   @ApiResponse({
     status: 403,
-    description: 'Forbidden - can only publish own testimonies',
+    description: 'Forbidden - admin access required',
   })
   @ApiResponse({
     status: 404,
     description: 'Testimony not found',
   })
-  async togglePublish(
-    @Param('id', ParseIntPipe) id: number,
-    @Request() req: { user: { userId: number } },
-  ) {
-    return this.testimonyService.togglePublish(id, req.user.userId);
+  async togglePublish(@Param('id', ParseIntPipe) id: number) {
+    return this.testimonyService.togglePublish(id);
   }
 
   @Post(':id/approve')
