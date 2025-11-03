@@ -29,7 +29,7 @@ export class TestimonyService {
     }
 
     try {
-      const { images, ...testimonyData } = createTestimonyDto;
+      const { images, relatives, ...testimonyData } = createTestimonyDto;
 
       const created = await this.prisma.testimony.create({
         data: {
@@ -53,12 +53,8 @@ export class TestimonyService {
         },
       });
 
-      if (
-        createTestimonyDto.relatives &&
-        Array.isArray(createTestimonyDto.relatives) &&
-        createTestimonyDto.relatives.length > 0
-      ) {
-        const validRelatives = createTestimonyDto.relatives
+      if (relatives && Array.isArray(relatives) && relatives.length > 0) {
+        const validRelatives = relatives
           .filter(
             (r) =>
               r.personName &&
@@ -87,7 +83,6 @@ export class TestimonyService {
         where: { id: created.id },
         include: {
           images: { orderBy: { order: 'asc' } },
-          // @ts-expect-error: relatives relation exists in schema but may lag in types
           relatives: {
             orderBy: { order: 'asc' },
             include: {
