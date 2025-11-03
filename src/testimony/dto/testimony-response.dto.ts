@@ -92,4 +92,24 @@ export class TestimonyResponseDto {
 
   @ApiProperty()
   updatedAt: Date;
+
+  @ApiProperty({
+    description:
+      'Resume position in seconds for the current user (if logged in)',
+    required: false,
+  })
+  resumePosition?: number;
+
+  @ApiProperty({
+    description: 'Relatives linked to this testimony',
+    required: false,
+    type: 'array',
+  })
+  relatives?: Array<{
+    id: number;
+    personName: string;
+    notes?: string;
+    order: number;
+    relativeType: { id: number; slug: string; displayName: string };
+  }>;
 }

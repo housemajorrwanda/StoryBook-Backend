@@ -16,6 +16,7 @@ import {
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { TestimonyImageDto } from './testimony-image.dto';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export enum SubmissionType {
   WRITTEN = 'written',
@@ -256,4 +257,24 @@ export class CreateTestimonyDto {
   @IsNotEmpty({ message: 'You must agree to the terms and conditions' })
   @Transform(({ value }) => value === true || value === 'true')
   agreedToTerms: boolean;
+
+  // ========== Relatives (Optional, normalized) ==========
+  @ApiPropertyOptional({
+    description:
+      'List of relatives related to this testimony. Each item should include relativeTypeId and personName.',
+    example: [
+      { relativeTypeId: 1, personName: 'John Doe', notes: 'Cousin' },
+      { relativeTypeId: 2, personName: 'Mary Doe' },
+    ],
+  })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => Object)
+  @IsOptional()
+  relatives?: Array<{
+    relativeTypeId?: number;
+    personName?: string;
+    notes?: string;
+    order?: number;
+  }>;
 }

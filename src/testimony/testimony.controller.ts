@@ -48,21 +48,19 @@ export class TestimonyController {
   ) {}
 
   @Post()
-  @ApiOperation({ summary: 'Create a new testimony (authentication optional)' })
-  @ApiResponse({
-    status: 201,
-    description: 'Testimony created successfully',
-    type: TestimonyResponseDto,
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Bad request - validation failed',
-  })
-  @Post('multipart')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({
-    summary: 'Create testimony with files and fields in one request',
+    summary: 'Create testimony with optional files (authentication required)',
   })
-  @ApiConsumes('multipart/form-data')
+  @ApiConsumes('multipart/form-data', 'application/json')
+  @UseInterceptors(
+    FileFieldsInterceptor([
+      { name: 'images', maxCount: 10 },
+      { name: 'audio', maxCount: 1 },
+      { name: 'video', maxCount: 1 },
+    ]),
+  )
   @ApiBody({
     schema: {
       type: 'object',
@@ -81,7 +79,19 @@ export class TestimonyController {
             'Other',
           ],
         },
-        nameOfRelative: { type: 'string' },
+        relatives: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              relativeTypeId: { type: 'number' },
+              personName: { type: 'string' },
+              notes: { type: 'string' },
+              order: { type: 'number' },
+            },
+            required: ['relativeTypeId', 'personName'],
+          },
+        },
         location: { type: 'string' },
         dateOfEvent: { type: 'string', format: 'date' },
         eventTitle: { type: 'string' },
@@ -100,30 +110,24 @@ export class TestimonyController {
       ],
     },
   })
-  @UseInterceptors(
-    FileFieldsInterceptor([
-      { name: 'images', maxCount: 10 },
-      { name: 'audio', maxCount: 1 },
-      { name: 'video', maxCount: 1 },
-    ]),
-  )
   @ApiResponse({
     status: 201,
     description: 'Testimony created successfully',
     type: TestimonyResponseDto,
   })
   @ApiResponse({ status: 400, description: 'Bad request - validation failed' })
-  async createMultipart(
-    @Request() req: { user?: { userId: number } },
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async create(
+    @Request() req: { user: { userId: number } },
     @UploadedFiles()
     files: {
       images?: Express.Multer.File[];
       audio?: Express.Multer.File[];
       video?: Express.Multer.File[];
     },
-    @Body() body: Record<string, unknown>,
+    @Body() body: Record<string, unknown> | CreateTestimonyDto,
   ) {
-    const userId = req.user?.userId || null;
+    const userId = req.user.userId;
 
     // Safely parse enums from body
     const submissionTypeCandidate =
@@ -202,7 +206,8 @@ export class TestimonyController {
       );
 
       const rawDescriptions =
-        body['imagesDescriptions'] ?? body['imageDescriptions'];
+        (body as Record<string, unknown>)['imagesDescriptions'] ??
+        (body as Record<string, unknown>)['imageDescriptions'];
 
       let descriptions: string[] = [];
       if (Array.isArray(rawDescriptions)) {
@@ -246,6 +251,7 @@ export class TestimonyController {
       dto.videoDuration = v.duration;
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return this.testimonyService.create(userId, dto);
   }
 
@@ -374,20 +380,60 @@ export class TestimonyController {
 
   @Get(':id')
   @ApiOperation({
-    summary: 'Get a single testimony by ID',
+    summary:
+      'Get a single testimony by ID. Includes resume progress if logged in.',
   })
   @ApiParam({ name: 'id', type: Number })
+  @ApiQuery({
+    name: 'progress',
+    required: false,
+    type: Number,
+    description:
+      'Update resume position (seconds) - only works if authenticated',
+  })
   @ApiResponse({
     status: 200,
-    description: 'Testimony details',
+    description: 'Testimony details with resume progress if user is logged in',
     type: TestimonyResponseDto,
   })
   @ApiResponse({
     status: 404,
     description: 'Testimony not found',
   })
-  async findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.testimonyService.findOne(id);
+  async findOne(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user?: { userId: number } },
+    @Query('progress') progress?: string,
+  ) {
+    const userId = req.user?.userId;
+    const progressSeconds = progress ? parseInt(progress, 10) : undefined;
+    return this.testimonyService.findOne(id, userId, progressSeconds);
+  }
+
+  @Get(':id/related')
+  @ApiOperation({ summary: 'Get related testimonies (stub for AI linking)' })
+  @ApiParam({ name: 'id', type: Number })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Max items to return (default: 5)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Related testimonies',
+    schema: {
+      type: 'array',
+      items: { $ref: '#/components/schemas/TestimonyResponseDto' },
+    },
+  })
+  async getRelated(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('limit') limit?: string,
+  ) {
+    const take = limit ? parseInt(limit, 10) : 5;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return this.testimonyService.getRelated(id, take);
   }
 
   @Patch(':id')

@@ -13,12 +13,11 @@ import { UpdateTestimonyDto } from './dto/update-testimony.dto';
 export class TestimonyService {
   constructor(private prisma: PrismaService) {}
 
-  async create(userId: number | null, createTestimonyDto: CreateTestimonyDto) {
-    if (userId !== null && userId <= 0) {
+  async create(userId: number, createTestimonyDto: CreateTestimonyDto) {
+    if (!userId || userId <= 0) {
       throw new BadRequestException('Invalid user ID');
     }
 
-    // Validate that agreedToTerms is true
     if (!createTestimonyDto.agreedToTerms) {
       throw new BadRequestException(
         'You must agree to the terms and conditions',
@@ -42,10 +41,40 @@ export class TestimonyService {
                 })),
               }
             : undefined,
+          // @ts-expect-error - relatives relation exists in Prisma schema
+          relatives:
+            createTestimonyDto.relatives &&
+            createTestimonyDto.relatives.length > 0
+              ? {
+                  create: createTestimonyDto.relatives
+                    .filter(
+                      (r) =>
+                        r.personName &&
+                        typeof r.personName === 'string' &&
+                        r.personName.trim().length > 0 &&
+                        r.relativeTypeId,
+                    )
+                    .map((r, idx) => ({
+                      relativeTypeId: r.relativeTypeId!,
+                      personName: r.personName!.trim(),
+                      notes: r.notes,
+                      order: r.order ?? idx,
+                    })),
+                }
+              : undefined,
         },
         include: {
           images: {
             orderBy: { order: 'asc' },
+          },
+          // @ts-expect-error - relatives relation exists in Prisma schema
+          relatives: {
+            orderBy: { order: 'asc' },
+            include: {
+              relativeType: {
+                select: { id: true, slug: true, displayName: true },
+              },
+            },
           },
         },
       });
@@ -201,7 +230,44 @@ export class TestimonyService {
     }
   }
 
-  async findOne(id: number) {
+  async getRelated(id: number, limit = 5) {
+    if (!id || id <= 0) {
+      throw new BadRequestException('Invalid testimony ID');
+    }
+
+    try {
+      const related = await this.prisma.testimony.findMany({
+        where: {
+          id: { not: id },
+          status: 'approved',
+          isPublished: true,
+        },
+        include: {
+          images: { orderBy: { order: 'asc' } },
+          user: { select: { id: true, fullName: true, residentPlace: true } },
+          // @ts-expect-error - relatives relation exists in Prisma schema
+          relatives: {
+            orderBy: { order: 'asc' },
+            include: {
+              relativeType: {
+                select: { id: true, slug: true, displayName: true },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+      });
+      return related;
+    } catch (error: unknown) {
+      console.error('Error fetching related testimonies:', error);
+      throw new InternalServerErrorException(
+        'Failed to fetch related testimonies',
+      );
+    }
+  }
+
+  async findOne(id: number, userId?: number, progressSeconds?: number) {
     if (!id || id <= 0) {
       throw new BadRequestException('Invalid testimony ID');
     }
@@ -237,10 +303,51 @@ export class TestimonyService {
         },
       });
 
-      // Return testimony with updated impression count
+      // Get or update resume progress if user is logged in
+      let resumeProgress: { lastPositionSeconds: number } | null = null;
+      if (userId) {
+        if (progressSeconds !== undefined && progressSeconds >= 0) {
+          // Update progress
+          /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */
+          resumeProgress = await (
+            this.prisma as any
+          ).testimonyMediaProgress.upsert({
+            where: {
+              userId_testimonyId: {
+                userId,
+                testimonyId: id,
+              },
+            },
+            update: {
+              lastPositionSeconds: progressSeconds,
+            },
+            create: {
+              userId,
+              testimonyId: id,
+              lastPositionSeconds: progressSeconds,
+            },
+          });
+          /* eslint-enable */
+        } else {
+          // Just get progress
+          /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */
+          resumeProgress = await (
+            this.prisma as any
+          ).testimonyMediaProgress.findUnique({
+            where: {
+              userId_testimonyId: {
+                userId,
+                testimonyId: id,
+              },
+            },
+          });
+        }
+      }
+
       return {
         ...testimony,
         impressions: testimony.impressions + 1,
+        resumePosition: resumeProgress?.lastPositionSeconds || 0,
       };
     } catch (error: unknown) {
       if (

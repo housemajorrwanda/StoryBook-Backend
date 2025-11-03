@@ -32,6 +32,7 @@ model User {
   
   // Relations
   testimonies       Testimony[]
+  mediaProgress     TestimonyMediaProgress[]
   
   @@map("users")
 }
@@ -71,6 +72,8 @@ model Testimony {
   
   // Images (optional for all types)
   images                TestimonyImage[]
+  // Relatives (normalized, multi)
+  relatives             TestimonyRelative[]
   
   // Consent
   agreedToTerms         Boolean  @default(false)
@@ -79,6 +82,11 @@ model Testimony {
   status                String   @default("pending") // pending, approved, rejected, reported, feedback_requested
   isPublished           Boolean  @default(false)
   impressions           Int      @default(0) // Track view count
+
+  // AI text artifacts
+  transcript            String?  @db.Text
+  summary               String?  @db.Text
+  keyPhrases            String[]
   
   // Admin actions
   adminFeedback         String?  @db.Text // Feedback from admin
@@ -89,6 +97,13 @@ model Testimony {
   // Relations
   userId                Int?
   user                  User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mediaProgress         TestimonyMediaProgress[]
+  // Normalized relations
+  events                TestimonyEvent[]
+  locations             TestimonyLocation[]
+  embeddings            TestimonyEmbedding[]
+  edgesFrom             TestimonyEdge[]     @relation("edges_from")
+  edgesTo               TestimonyEdge[]     @relation("edges_to")
   
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
@@ -114,4 +129,159 @@ model TestimonyImage {
 
   @@map("testimony_images")
   @@index([testimonyId])
+}
+
+model TestimonyMediaProgress {
+  id                Int       @id @default(autoincrement())
+  userId            Int
+  testimonyId       Int
+  lastPositionSeconds Int     @default(0) // Where user left off (in seconds)
+  
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  testimony         Testimony @relation(fields: [testimonyId], references: [id], onDelete: Cascade)
+  
+  updatedAt         DateTime  @updatedAt
+
+  @@unique([userId, testimonyId])
+  @@map("testimony_media_progress")
+  @@index([userId])
+  @@index([testimonyId])
+}
+
+
+model Location {
+  id             Int      @id @default(autoincrement())
+  name           String
+  normalizedName String?
+  lat            Float?
+  lng            Float?
+
+  testimonies    TestimonyLocation[]
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("locations")
+  @@index([normalizedName])
+}
+
+model TestimonyLocation {
+  id           Int      @id @default(autoincrement())
+  testimonyId  Int
+  locationId   Int
+  notes        String?
+  confidence   Float?
+
+  testimony    Testimony @relation(fields: [testimonyId], references: [id], onDelete: Cascade)
+  location     Location  @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@map("testimony_locations")
+  @@index([testimonyId])
+  @@index([locationId])
+}
+
+
+model Event {
+  id             Int      @id @default(autoincrement())
+  title          String
+  dateRangeStart DateTime?
+  dateRangeEnd   DateTime?
+  aliases        String[]
+
+  testimonies    TestimonyEvent[]
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("events")
+  @@index([title])
+}
+
+model TestimonyEvent {
+  id           Int      @id @default(autoincrement())
+  testimonyId  Int
+  eventId      Int
+  notes        String?
+  confidence   Float?
+
+  testimony    Testimony @relation(fields: [testimonyId], references: [id], onDelete: Cascade)
+  event        Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@map("testimony_events")
+  @@index([testimonyId])
+  @@index([eventId])
+}
+
+
+model TestimonyEmbedding {
+  id           Int       @id @default(autoincrement())
+  testimonyId  Int
+  section      String    // title | description | transcript | summary
+  model        String    // e.g., text-embedding-3-large
+  vector       Float[]   // embedding vector
+  createdAt    DateTime  @default(now())
+
+  testimony    Testimony @relation(fields: [testimonyId], references: [id], onDelete: Cascade)
+
+  @@map("testimony_embeddings")
+  @@index([testimonyId])
+  @@index([model])
+  @@index([section])
+}
+
+model TestimonyEdge {
+  id        Int       @id @default(autoincrement())
+  fromId    Int
+  toId      Int
+  type      String    // same_event | same_person | same_location | semantic_similarity
+  score     Float
+  source    String?   // rule name / model
+  createdAt DateTime  @default(now())
+
+  from      Testimony @relation("edges_from", fields: [fromId], references: [id], onDelete: Cascade)
+  to        Testimony @relation("edges_to", fields: [toId], references: [id], onDelete: Cascade)
+
+  @@map("testimony_edges")
+  @@index([fromId])
+  @@index([toId])
+  @@index([type])
+}
+
+model RelativeType {
+  id          Int      @id @default(autoincrement())
+  slug        String   @unique
+  displayName String
+  synonyms    String?  @db.Text
+
+  relatives   TestimonyRelative[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("relative_types")
+}
+
+model TestimonyRelative {
+  id             Int       @id @default(autoincrement())
+  testimonyId    Int
+  relativeTypeId Int
+  personName     String
+  notes          String?
+  order          Int       @default(0)
+
+  testimony      Testimony   @relation(fields: [testimonyId], references: [id], onDelete: Cascade)
+  relativeType   RelativeType @relation(fields: [relativeTypeId], references: [id], onDelete: Cascade)
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("testimony_relatives")
+  @@index([testimonyId])
+  @@index([relativeTypeId])
 }
