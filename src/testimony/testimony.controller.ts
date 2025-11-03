@@ -35,7 +35,6 @@ import {
 import { UpdateTestimonyDto } from './dto/update-testimony.dto';
 import { TestimonyResponseDto } from './dto/testimony-response.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
-// Future: Event/Location DTOs (not exposed as endpoints yet)
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';

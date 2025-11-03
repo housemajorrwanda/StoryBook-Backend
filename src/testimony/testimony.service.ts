@@ -27,7 +27,7 @@ export class TestimonyService {
     try {
       const { images, ...testimonyData } = createTestimonyDto;
 
-      const testimony = await this.prisma.testimony.create({
+      const created = await this.prisma.testimony.create({
         data: {
           ...testimonyData,
           userId,
@@ -41,33 +41,49 @@ export class TestimonyService {
                 })),
               }
             : undefined,
-          // @ts-expect-error - relatives relation exists in Prisma schema
-          relatives:
-            createTestimonyDto.relatives &&
-            createTestimonyDto.relatives.length > 0
-              ? {
-                  create: createTestimonyDto.relatives
-                    .filter(
-                      (r) =>
-                        r.personName &&
-                        typeof r.personName === 'string' &&
-                        r.personName.trim().length > 0 &&
-                        r.relativeTypeId,
-                    )
-                    .map((r, idx) => ({
-                      relativeTypeId: r.relativeTypeId!,
-                      personName: r.personName!.trim(),
-                      notes: r.notes,
-                      order: r.order ?? idx,
-                    })),
-                }
-              : undefined,
         },
         include: {
           images: {
             orderBy: { order: 'asc' },
           },
-          // @ts-expect-error - relatives relation exists in Prisma schema
+        },
+      });
+
+      if (
+        createTestimonyDto.relatives &&
+        Array.isArray(createTestimonyDto.relatives) &&
+        createTestimonyDto.relatives.length > 0
+      ) {
+        const validRelatives = createTestimonyDto.relatives
+          .filter(
+            (r) =>
+              r.personName &&
+              typeof r.personName === 'string' &&
+              r.personName.trim().length > 0 &&
+              r.relativeTypeId,
+          )
+          .map((r, idx) => ({
+            testimonyId: created.id,
+            relativeTypeId: r.relativeTypeId!,
+            personName: r.personName!.trim(),
+            notes: r.notes,
+            order: r.order ?? idx,
+          }));
+
+        if (validRelatives.length > 0) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+          await (this.prisma as any).testimonyRelative.createMany({
+            data: validRelatives,
+          });
+        }
+      }
+
+      // Return fully loaded testimony including relatives
+      const full = await this.prisma.testimony.findUnique({
+        where: { id: created.id },
+        include: {
+          images: { orderBy: { order: 'asc' } },
+          // @ts-expect-error: relatives relation exists in schema but may lag in types
           relatives: {
             orderBy: { order: 'asc' },
             include: {
@@ -79,7 +95,7 @@ export class TestimonyService {
         },
       });
 
-      return testimony;
+      return full ?? created;
     } catch (error: unknown) {
       console.error('Error creating testimony:', error);
 
@@ -163,7 +179,6 @@ export class TestimonyService {
         where.isPublished = filters.isPublished;
       }
 
-      // Search filter - search in eventTitle, eventDescription, or fullName
       if (filters?.search) {
         where.OR = [
           { eventTitle: { contains: filters.search, mode: 'insensitive' } },
@@ -236,7 +251,6 @@ export class TestimonyService {
     }
 
     try {
-      // Simple fallback for now: latest approved & published excluding current
       const related = await this.prisma.testimony.findMany({
         where: {
           id: { not: id },
@@ -286,7 +300,6 @@ export class TestimonyService {
         throw new NotFoundException('Testimony not found');
       }
 
-      // Automatically increment impression count when viewing a testimony
       await this.prisma.testimony.update({
         where: { id },
         data: {
@@ -300,7 +313,6 @@ export class TestimonyService {
       let resumeProgress: { lastPositionSeconds: number } | null = null;
       if (userId) {
         if (progressSeconds !== undefined && progressSeconds >= 0) {
-          // Update progress
           /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */
           resumeProgress = await (
             this.prisma as any
@@ -320,9 +332,7 @@ export class TestimonyService {
               lastPositionSeconds: progressSeconds,
             },
           });
-          /* eslint-enable */
         } else {
-          // Just get progress
           /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */
           resumeProgress = await (
             this.prisma as any
@@ -546,6 +556,4 @@ export class TestimonyService {
       );
     }
   }
-
-  // Future: Event/Location CRUD and linking are intentionally omitted for now
 }
