@@ -34,10 +34,11 @@ import {
 } from './dto/create-testimony.dto';
 import { UpdateTestimonyDto } from './dto/update-testimony.dto';
 import { TestimonyResponseDto } from './dto/testimony-response.dto';
+import { UpdateStatusDto } from './dto/update-status.dto';
+// Future: Event/Location DTOs (not exposed as endpoints yet)
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
-import { UpdateStatusDto } from './dto/update-status.dto';
 
 @ApiTags('Testimonies')
 @Controller('testimonies')
@@ -93,7 +94,8 @@ export class TestimonyController {
           },
         },
         location: { type: 'string' },
-        dateOfEvent: { type: 'string', format: 'date' },
+        dateOfEventFrom: { type: 'string', format: 'date' },
+        dateOfEventTo: { type: 'string', format: 'date' },
         eventTitle: { type: 'string' },
         eventDescription: { type: 'string' },
         fullTestimony: { type: 'string' },
@@ -176,9 +178,13 @@ export class TestimonyController {
           ? body.nameOfRelative
           : undefined,
       location: typeof body.location === 'string' ? body.location : undefined,
-      dateOfEvent:
-        typeof body.dateOfEvent === 'string'
-          ? new Date(body.dateOfEvent)
+      dateOfEventFrom:
+        typeof body.dateOfEventFrom === 'string'
+          ? new Date(body.dateOfEventFrom)
+          : undefined,
+      dateOfEventTo:
+        typeof body.dateOfEventTo === 'string'
+          ? new Date(body.dateOfEventTo)
           : undefined,
       eventTitle:
         typeof body.eventTitle === 'string' ? body.eventTitle : ('' as string),
@@ -251,7 +257,6 @@ export class TestimonyController {
       dto.videoDuration = v.duration;
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return this.testimonyService.create(userId, dto);
   }
 
@@ -432,7 +437,6 @@ export class TestimonyController {
     @Query('limit') limit?: string,
   ) {
     const take = limit ? parseInt(limit, 10) : 5;
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return this.testimonyService.getRelated(id, take);
   }
 

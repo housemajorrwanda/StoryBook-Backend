@@ -43,7 +43,10 @@ export class TestimonyResponseDto {
   location?: string;
 
   @ApiProperty({ required: false })
-  dateOfEvent?: Date;
+  dateOfEventFrom?: Date;
+
+  @ApiProperty({ required: false })
+  dateOfEventTo?: Date;
 
   @ApiProperty()
   eventTitle: string;

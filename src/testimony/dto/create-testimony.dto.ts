@@ -116,14 +116,24 @@ export class CreateTestimonyDto {
   location?: string;
 
   @ApiProperty({
-    description: 'Date of the event',
+    description: 'Start date of the event (date range)',
     example: '1994-04-07',
     required: false,
   })
   // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
   @Transform(({ value }) => (value ? new Date(value) : undefined))
   @IsOptional()
-  dateOfEvent?: Date;
+  dateOfEventFrom?: Date;
+
+  @ApiProperty({
+    description: 'End date of the event (date range)',
+    example: '1994-04-21',
+    required: false,
+  })
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+  @Transform(({ value }) => (value ? new Date(value) : undefined))
+  @IsOptional()
+  dateOfEventTo?: Date;
 
   // ========== Event Information ==========
   @ApiProperty({

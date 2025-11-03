@@ -51,7 +51,8 @@ model Testimony {
   relationToEvent       String?  // e.g., "Survivor", "Witness", "Family Member", "Friend"
   nameOfRelative        String?  // Optional
   location              String?
-  dateOfEvent           DateTime?
+  dateOfEventFrom       DateTime?  // Start of event date range
+  dateOfEventTo         DateTime?  // End of event date range
   
   // Event Information
   eventTitle            String

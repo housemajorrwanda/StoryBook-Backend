@@ -236,6 +236,7 @@ export class TestimonyService {
     }
 
     try {
+      // Simple fallback for now: latest approved & published excluding current
       const related = await this.prisma.testimony.findMany({
         where: {
           id: { not: id },
@@ -245,19 +246,11 @@ export class TestimonyService {
         include: {
           images: { orderBy: { order: 'asc' } },
           user: { select: { id: true, fullName: true, residentPlace: true } },
-          // @ts-expect-error - relatives relation exists in Prisma schema
-          relatives: {
-            orderBy: { order: 'asc' },
-            include: {
-              relativeType: {
-                select: { id: true, slug: true, displayName: true },
-              },
-            },
-          },
         },
         orderBy: { createdAt: 'desc' },
         take: limit,
       });
+
       return related;
     } catch (error: unknown) {
       console.error('Error fetching related testimonies:', error);
@@ -553,4 +546,6 @@ export class TestimonyService {
       );
     }
   }
+
+  // Future: Event/Location CRUD and linking are intentionally omitted for now
 }
