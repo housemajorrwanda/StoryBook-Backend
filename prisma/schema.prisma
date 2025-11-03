@@ -60,6 +60,15 @@ model Testimony {
   
   // Written Testimony (only for written type)
   fullTestimony         String?  @db.Text
+  // Draft support for written resume (no new endpoints)
+  isDraft               Boolean  @default(false)
+  draftCursorPosition   Int?
+  draftLastSavedAt      DateTime?
+
+  // Edit cadence control
+  lastEditedAt          DateTime?
+  lastPublishedAt       DateTime?
+  nextEditableAt        DateTime?
   
   // Audio (for audio type)
   audioUrl              String?

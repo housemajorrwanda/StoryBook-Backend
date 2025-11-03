@@ -180,6 +180,21 @@ export class CreateTestimonyDto {
   @Transform(({ value }) => value?.trim())
   fullTestimony?: string;
 
+  // ========== Draft (Optional for WRITTEN type) ==========
+  @ApiPropertyOptional({
+    description:
+      'Mark testimony as draft (enables autosave without publishing)',
+  })
+  @IsOptional()
+  isDraft?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Cursor position for draft autosave in written editor',
+    example: 120,
+  })
+  @IsOptional()
+  draftCursorPosition?: number;
+
   // ========== Audio Fields (Required for AUDIO type) ==========
   @ApiProperty({
     description: 'Audio file URL (required for audio submission type)',

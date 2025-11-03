@@ -6,12 +6,16 @@ import {
   InternalServerErrorException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { EmailService } from '../email/email.service';
 import { CreateTestimonyDto } from './dto/create-testimony.dto';
 import { UpdateTestimonyDto } from './dto/update-testimony.dto';
 
 @Injectable()
 export class TestimonyService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private emailService: EmailService,
+  ) {}
 
   async create(userId: number, createTestimonyDto: CreateTestimonyDto) {
     if (!userId || userId <= 0) {
@@ -379,7 +383,12 @@ export class TestimonyService {
       throw new BadRequestException('Invalid user ID');
     }
 
-    const existingTestimony = await this.findOne(id);
+    const existingTestimony = await this.prisma.testimony.findUnique({
+      where: { id },
+    });
+    if (!existingTestimony) {
+      throw new NotFoundException('Testimony not found');
+    }
 
     if (existingTestimony.userId !== userId) {
       throw new ForbiddenException('You can only update your own testimonies');
@@ -400,6 +409,58 @@ export class TestimonyService {
             order: img.order ?? index,
           })),
         };
+      }
+
+      // Autoset draftLastSavedAt when updating draft fields or fullTestimony
+      const shouldTouchDraftTimestamp =
+        updateTestimonyDto.fullTestimony !== undefined ||
+        updateTestimonyDto.draftCursorPosition !== undefined ||
+        updateTestimonyDto.isDraft !== undefined;
+
+      if (shouldTouchDraftTimestamp) {
+        updateData.draftLastSavedAt = new Date();
+      }
+
+      // Enforce 2-month cooldown on published/approved testimonies
+      const TWO_MONTHS_MS = 60 * 24 * 60 * 60 * 1000;
+      const now = Date.now();
+      if (
+        existingTestimony.isPublished ||
+        existingTestimony.status === 'approved'
+      ) {
+        const rawNext = (existingTestimony as Record<string, unknown>)[
+          'nextEditableAt'
+        ];
+        const nextEditableAt = rawNext
+          ? new Date(rawNext as string | number | Date).getTime()
+          : undefined;
+        if (nextEditableAt && now < nextEditableAt) {
+          const waitMs = nextEditableAt - now;
+          const waitDays = Math.ceil(waitMs / (24 * 60 * 60 * 1000));
+          throw new ForbiddenException(
+            `Edits are limited to once every 2 months. You can edit again in about ${waitDays} day(s).`,
+          );
+        }
+        if (!nextEditableAt) {
+          const rawAnchor =
+            (existingTestimony as Record<string, unknown>)['lastEditedAt'] ??
+            (existingTestimony as Record<string, unknown>)['lastPublishedAt'];
+          if (rawAnchor) {
+            const anchorTs = new Date(
+              rawAnchor as string | number | Date,
+            ).getTime();
+            if (now < anchorTs + TWO_MONTHS_MS) {
+              const waitMs = anchorTs + TWO_MONTHS_MS - now;
+              const waitDays = Math.ceil(waitMs / (24 * 60 * 60 * 1000));
+              throw new ForbiddenException(
+                `Edits are limited to once every 2 months. You can edit again in about ${waitDays} day(s).`,
+              );
+            }
+          }
+        }
+        // Set next window and lastEditedAt on allowed edit
+        updateData['lastEditedAt'] = new Date();
+        updateData['nextEditableAt'] = new Date(Date.now() + TWO_MONTHS_MS);
       }
 
       const testimony = await this.prisma.testimony.update({
@@ -436,7 +497,12 @@ export class TestimonyService {
       throw new BadRequestException('Invalid user ID');
     }
 
-    const existingTestimony = await this.findOne(id);
+    const existingTestimony = await this.prisma.testimony.findUnique({
+      where: { id },
+    });
+    if (!existingTestimony) {
+      throw new NotFoundException('Testimony not found');
+    }
 
     if (existingTestimony.userId !== userId) {
       throw new ForbiddenException('You can only delete your own testimonies');
@@ -535,10 +601,28 @@ export class TestimonyService {
               id: true,
               fullName: true,
               residentPlace: true,
+              email: true,
             },
           },
         },
       });
+
+      // Notify owner via email on status changes
+      try {
+        const userEmail = (testimony as any)?.user?.email as string | undefined;
+        if (userEmail) {
+          await this.emailService.sendTestimonyStatusEmail({
+            to: userEmail,
+            status: status as 'approved' | 'rejected' | 'pending',
+            feedback,
+            testimonyTitle: testimony.eventTitle,
+            testimonyId: testimony.id,
+          });
+        }
+      } catch (notifyErr) {
+        // Log but don't fail the request if email fails
+        console.warn('Failed to send testimony status email:', notifyErr);
+      }
 
       return testimony;
     } catch (error: unknown) {

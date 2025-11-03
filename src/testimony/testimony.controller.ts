@@ -98,6 +98,8 @@ export class TestimonyController {
         eventTitle: { type: 'string' },
         eventDescription: { type: 'string' },
         fullTestimony: { type: 'string' },
+        isDraft: { type: 'boolean' },
+        draftCursorPosition: { type: 'number' },
         agreedToTerms: { type: 'boolean' },
         images: { type: 'array', items: { type: 'string', format: 'binary' } },
         audio: { type: 'string', format: 'binary' },
@@ -193,6 +195,20 @@ export class TestimonyController {
           : undefined,
       fullTestimony:
         typeof body.fullTestimony === 'string' ? body.fullTestimony : undefined,
+      isDraft:
+        typeof body.isDraft === 'boolean'
+          ? body.isDraft
+          : body.isDraft === 'true'
+            ? true
+            : body.isDraft === 'false'
+              ? false
+              : undefined,
+      draftCursorPosition:
+        typeof body.draftCursorPosition === 'number'
+          ? body.draftCursorPosition
+          : typeof body.draftCursorPosition === 'string'
+            ? Number.parseInt(String(body.draftCursorPosition), 10)
+            : undefined,
       agreedToTerms:
         body.agreedToTerms === true || body.agreedToTerms === 'true',
       images: undefined,

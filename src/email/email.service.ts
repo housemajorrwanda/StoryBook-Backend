@@ -141,4 +141,77 @@ export class EmailService {
       this.logger.log(`[EMAIL FALLBACK] Reset URL: ${resetUrl}`);
     }
   }
+
+  async sendTestimonyStatusEmail(params: {
+    to: string;
+    status: 'approved' | 'rejected' | 'pending';
+    feedback?: string;
+    testimonyTitle?: string;
+    testimonyId: number;
+  }): Promise<void> {
+    const { to, status, feedback, testimonyTitle, testimonyId } = params;
+    const appUrl = this.configService.get<string>(
+      'FRONTEND_URL',
+      'http://localhost:3000',
+    );
+    const testimonyUrl = `${appUrl}/testimonies/${testimonyId}`;
+
+    const subject =
+      status === 'approved'
+        ? 'Your testimony was approved'
+        : status === 'rejected'
+          ? 'Your testimony was rejected'
+          : 'Your testimony status was updated';
+
+    const feedbackHtml =
+      feedback && feedback.trim().length
+        ? `<p><strong>Feedback:</strong> ${feedback}</p>`
+        : '';
+
+    const titleHtml = testimonyTitle
+      ? `<h3 style="margin-top:0;">${testimonyTitle}</h3>`
+      : '';
+
+    const actionHtml =
+      status === 'approved'
+        ? `<a href="${testimonyUrl}" style="background:#16a34a;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;display:inline-block;">View your testimony</a>`
+        : `<a href="${testimonyUrl}" style="background:#2563eb;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;display:inline-block;">Review details</a>`;
+
+    const html = `
+      <div style="font-family:Arial, sans-serif; max-width:600px; margin:0 auto;">
+        <h2 style="color:#111">Testimony status update</h2>
+        ${titleHtml}
+        <p>Your testimony status is now: <strong>${status}</strong>.</p>
+        ${feedbackHtml}
+        <div style="margin:24px 0;">${actionHtml}</div>
+        <p style="color:#555;font-size:12px;">If the button doesn't work, copy this link: ${testimonyUrl}</p>
+      </div>
+    `;
+
+    const mailOptions = {
+      from: this.configService.get<string>(
+        'FROM_EMAIL',
+        'noreply@housemajor.com',
+      ),
+      to,
+      subject,
+      html,
+    };
+
+    try {
+      if (!this.transporter) {
+        this.logger.log(
+          `[EMAIL] Status: ${status} to ${to} for testimony ${testimonyId}`,
+        );
+        return;
+      }
+      await this.transporter.sendMail(mailOptions);
+      this.logger.log(`Status email (${status}) sent to: ${to}`);
+    } catch (error) {
+      this.logger.error('Failed to send status email:', error);
+      this.logger.log(
+        `[EMAIL FALLBACK] Status: ${status} to ${to} for testimony ${testimonyId}`,
+      );
+    }
+  }
 }

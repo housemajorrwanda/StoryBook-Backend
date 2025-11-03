@@ -58,6 +58,15 @@ export class TestimonyResponseDto {
   fullTestimony?: string;
 
   @ApiProperty({ required: false })
+  isDraft?: boolean;
+
+  @ApiProperty({ required: false })
+  draftCursorPosition?: number;
+
+  @ApiProperty({ required: false })
+  draftLastSavedAt?: Date;
+
+  @ApiProperty({ required: false })
   audioUrl?: string;
 
   @ApiProperty({ required: false })
