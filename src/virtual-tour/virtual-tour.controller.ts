@@ -65,8 +65,7 @@ export class VirtualTourController {
 
   @Get()
   @ApiOperation({
-    summary:
-      'Get all virtual tours with filters (Public - No authentication required)',
+    summary: 'Get all virtual tours with filters',
   })
   @ApiQuery({ name: 'skip', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
