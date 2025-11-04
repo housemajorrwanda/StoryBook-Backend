@@ -188,7 +188,12 @@ export class VirtualTourService {
       };
     } catch (error: unknown) {
       console.error('Error fetching virtual tours:', error);
-      throw new InternalServerErrorException('Failed to fetch virtual tours');
+      if (error instanceof Error) {
+        console.error('Error details:', error.message, error.stack);
+      }
+      throw new InternalServerErrorException(
+        `Failed to fetch virtual tours: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
     }
   }
 
