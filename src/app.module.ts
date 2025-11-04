@@ -9,6 +9,7 @@ import { UserModule } from './user/user.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { TestimonyModule } from './testimony/testimony.module';
 import { UploadModule } from './upload/upload.module';
+import { VirtualTourModule } from './virtual-tour/virtual-tour.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { UploadModule } from './upload/upload.module';
     UserModule,
     TestimonyModule,
     UploadModule,
+    VirtualTourModule,
   ],
   controllers: [AppController],
   providers: [

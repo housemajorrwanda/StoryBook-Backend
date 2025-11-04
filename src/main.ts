@@ -27,6 +27,10 @@ async function bootstrap() {
     .addTag('Users', 'User management endpoints')
     .addTag('Testimonies', 'Testimony CRUD and management')
     .addTag('Upload', 'File upload to Cloudinary')
+    .addTag(
+      'Virtual Tours',
+      'Virtual tour CRUD with interactive elements (hotspots, audio regions, effects)',
+    )
     .addBearerAuth(
       {
         type: 'http',

@@ -219,6 +219,152 @@ export class UploadService {
     });
   }
 
+  async uploadVirtualTour(
+    file: Express.Multer.File,
+    tourType: '360_image' | '3d_model' | '360_video',
+  ): Promise<{
+    url: string;
+    fileName: string;
+    publicId: string;
+    tourType: string;
+  }> {
+    if (!file) {
+      throw new BadRequestException('No file provided');
+    }
+
+    if (tourType === '360_image') {
+      // Validate 360° image types
+      const allowedTypes = [
+        'image/jpeg',
+        'image/png',
+        'image/jpg',
+        'image/webp',
+        'image/heic',
+        'image/heif',
+      ];
+      if (!allowedTypes.includes(file.mimetype)) {
+        throw new BadRequestException(
+          'Invalid file type. Only JPEG, PNG, WebP, HEIC, and HEIF images are allowed for 360° images',
+        );
+      }
+
+      // Validate file size (20MB for 360° images)
+      const maxSize = 20 * 1024 * 1024;
+      if (file.size > maxSize) {
+        throw new BadRequestException(
+          'File size exceeds 20MB limit for 360° images',
+        );
+      }
+
+      try {
+        const result = await this.uploadToCloudinary(
+          file,
+          'testimonies/virtual-tours/360',
+          'image',
+        );
+
+        return {
+          url: result.secure_url,
+          fileName: file.originalname,
+          publicId: result.public_id,
+          tourType: '360_image',
+        };
+      } catch (error) {
+        console.error('Error uploading 360° image to Cloudinary:', error);
+        throw new BadRequestException('Failed to upload 360° image');
+      }
+    } else if (tourType === '3d_model') {
+      // Validate 3D model types
+      const allowedTypes = [
+        'model/gltf-binary', // GLB
+        'model/gltf+json', // GLTF
+        'application/octet-stream', // Sometimes GLB files are detected as this
+      ];
+
+      // Check file extension as fallback for 3D models
+      const fileName = file.originalname.toLowerCase();
+      const hasValidExtension =
+        fileName.endsWith('.glb') ||
+        fileName.endsWith('.gltf') ||
+        fileName.endsWith('.obj');
+
+      if (!allowedTypes.includes(file.mimetype) && !hasValidExtension) {
+        throw new BadRequestException(
+          'Invalid file type. Only GLB, GLTF, and OBJ 3D model files are allowed',
+        );
+      }
+
+      // Validate file size (100MB for 3D models)
+      const maxSize = 100 * 1024 * 1024;
+      if (file.size > maxSize) {
+        throw new BadRequestException(
+          'File size exceeds 100MB limit for 3D models',
+        );
+      }
+
+      try {
+        const result = await this.uploadToCloudinary(
+          file,
+          'testimonies/virtual-tours/3d-models',
+          'raw', // Use 'raw' for 3D model files
+        );
+
+        return {
+          url: result.secure_url,
+          fileName: file.originalname,
+          publicId: result.public_id,
+          tourType: '3d_model',
+        };
+      } catch (error) {
+        console.error('Error uploading 3D model to Cloudinary:', error);
+        throw new BadRequestException('Failed to upload 3D model');
+      }
+    } else if (tourType === '360_video') {
+      // Validate 360° video types
+      const allowedTypes = [
+        'video/mp4',
+        'video/mpeg',
+        'video/quicktime',
+        'video/webm',
+      ];
+      if (!allowedTypes.includes(file.mimetype)) {
+        throw new BadRequestException(
+          'Invalid file type. Only MP4, MPEG, MOV, and WebM video files are allowed for 360° videos',
+        );
+      }
+
+      // Validate file size (500MB for 360° videos)
+      const maxSize = 500 * 1024 * 1024;
+      if (file.size > maxSize) {
+        throw new BadRequestException(
+          'File size exceeds 500MB limit for 360° videos',
+        );
+      }
+
+      try {
+        const result = await this.uploadToCloudinary(
+          file,
+          'virtual-tours/360-video',
+          'video',
+        );
+
+        return {
+          url: result.secure_url,
+          fileName: file.originalname,
+          publicId: result.public_id,
+          tourType: '360_video',
+        };
+      } catch (error) {
+        console.error('Error uploading 360° video to Cloudinary:', error);
+        throw new BadRequestException('Failed to upload 360° video');
+      }
+    } else {
+      throw new BadRequestException(
+        'Invalid tour type. Must be "360_image", "3d_model", or "360_video"',
+      );
+    }
+  }
+
   async deleteFile(publicId: string): Promise<void> {
     try {
       await cloudinary.uploader.destroy(publicId);
