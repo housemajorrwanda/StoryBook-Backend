@@ -34,7 +34,6 @@ export class AppController {
         database: 'connected',
       };
     } catch (error) {
-      // Return partial health even if DB is down - app is still running
       return {
         ...health,
         database: 'disconnected',
