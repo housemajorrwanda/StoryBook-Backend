@@ -4,6 +4,9 @@ import { PrismaClient } from '@prisma/client';
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit {
   private readonly logger = new Logger(PrismaService.name);
+  // NOTE: Do NOT manually add model properties here (e.g., virtualTour, testimony, etc.)
+  // Prisma Client automatically generates all model accessors when you run 'prisma generate'
+  // Adding them manually causes TypeScript errors because they conflict with the generated accessors
 
   async onModuleInit() {
     try {
