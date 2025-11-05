@@ -22,9 +22,10 @@ export class TestimonyService {
       throw new BadRequestException('Invalid user ID');
     }
 
-    if (!createTestimonyDto.agreedToTerms) {
+    // Only require agreedToTerms when NOT saving as draft
+    if (!createTestimonyDto.isDraft && !createTestimonyDto.agreedToTerms) {
       throw new BadRequestException(
-        'You must agree to the terms and conditions',
+        'You must agree to the terms and conditions to submit your testimony',
       );
     }
 
@@ -387,6 +388,17 @@ export class TestimonyService {
 
     if (existingTestimony.userId !== userId) {
       throw new ForbiddenException('You can only update your own testimonies');
+    }
+
+    // If publishing a draft (changing from draft to published), require agreedToTerms
+    if (
+      existingTestimony.isDraft &&
+      updateTestimonyDto.isDraft === false &&
+      !existingTestimony.agreedToTerms
+    ) {
+      throw new BadRequestException(
+        'You must agree to the terms and conditions to publish your testimony',
+      );
     }
 
     try {

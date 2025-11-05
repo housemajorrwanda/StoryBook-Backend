@@ -274,12 +274,16 @@ export class CreateTestimonyDto {
   images?: TestimonyImageDto[];
 
   // ========== Consent ==========
-  @ApiProperty({
-    description: 'Agreement to terms and conditions',
+  @ApiPropertyOptional({
+    description:
+      'Agreement to terms and conditions (required when not saving as draft)',
     example: true,
   })
+  @ValidateIf((o: CreateTestimonyDto) => !o.isDraft)
   @IsBoolean({ message: 'Agreed to terms must be a boolean' })
-  @IsNotEmpty({ message: 'You must agree to the terms and conditions' })
+  @IsOptional({
+    message: 'You must agree to the terms and conditions to submit',
+  })
   @Transform(({ value }) => value === true || value === 'true')
   agreedToTerms: boolean;
 
