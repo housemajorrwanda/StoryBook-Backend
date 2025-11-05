@@ -56,7 +56,6 @@ export class VirtualTourController {
   ) {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
     const userId = req.user.id;
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return this.virtualTourService.create(
       userId as number,
       createVirtualTourDto,
@@ -111,7 +110,6 @@ export class VirtualTourController {
   })
   @ApiResponse({ status: 404, description: 'Virtual tour not found' })
   async findOne(@Param('id', ParseIntPipe) id: number) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return this.virtualTourService.findOne(id);
   }
 
@@ -139,7 +137,6 @@ export class VirtualTourController {
   ) {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
     const userId = req.user.id;
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return this.virtualTourService.update(
       id,
       userId as number,

@@ -22,7 +22,6 @@ export class VirtualTourService {
       const { hotspots, audioRegions, effects, ...tourData } =
         createVirtualTourDto;
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       const created = await this.prisma.virtualTour.create({
         data: {
           ...tourData,
@@ -72,7 +71,6 @@ export class VirtualTourService {
         },
       });
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return created;
     } catch (error: unknown) {
       console.error('Error creating virtual tour:', error);
@@ -146,9 +144,7 @@ export class VirtualTourService {
         ];
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const [tours, total] = await Promise.all([
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
         this.prisma.virtualTour.findMany({
           where,
           include: {
@@ -172,17 +168,15 @@ export class VirtualTourService {
           skip,
           take: limit,
         }),
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+
         this.prisma.virtualTour.count({ where }),
       ]);
 
       return {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         data: tours,
         meta: {
           skip,
           limit,
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           total,
         },
       };
@@ -203,7 +197,6 @@ export class VirtualTourService {
     }
 
     try {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       const tour = await this.prisma.virtualTour.findUnique({
         where: { id },
         include: {
@@ -230,7 +223,6 @@ export class VirtualTourService {
       }
 
       // Increment impressions
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       await this.prisma.virtualTour.update({
         where: { id },
         data: {
@@ -240,10 +232,8 @@ export class VirtualTourService {
         },
       });
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return {
         ...tour,
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
         impressions: tour.impressions + 1,
       };
     } catch (error: unknown) {
@@ -273,7 +263,6 @@ export class VirtualTourService {
       throw new BadRequestException('Invalid user ID');
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     const existingTour = await this.prisma.virtualTour.findUnique({
       where: { id },
     });
@@ -282,7 +271,6 @@ export class VirtualTourService {
       throw new NotFoundException('Virtual tour not found');
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     if (existingTour.userId !== userId) {
       throw new ForbiddenException(
         'You can only update your own virtual tours',
@@ -324,8 +312,6 @@ export class VirtualTourService {
           })),
         };
       }
-
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       const tour = await this.prisma.virtualTour.update({
         where: { id },
         data: updateData,
@@ -342,7 +328,6 @@ export class VirtualTourService {
         },
       });
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return tour;
     } catch (error: unknown) {
       if (
@@ -367,7 +352,6 @@ export class VirtualTourService {
       throw new BadRequestException('Invalid user ID');
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     const existingTour = await this.prisma.virtualTour.findUnique({
       where: { id },
     });
@@ -376,15 +360,12 @@ export class VirtualTourService {
       throw new NotFoundException('Virtual tour not found');
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     if (existingTour.userId !== userId) {
       throw new ForbiddenException(
         'You can only delete your own virtual tours',
       );
     }
-
     try {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       await this.prisma.virtualTour.delete({
         where: { id },
       });
