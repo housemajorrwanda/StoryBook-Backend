@@ -460,6 +460,59 @@ export class TestimonyController {
     return this.testimonyService.getComparison(id, userId, userRole);
   }
 
+  @Get('drafts')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: 'Get all draft testimonies for authenticated user',
+    description:
+      'Returns paginated list of draft testimonies for the authenticated user. Ordered by last saved date.',
+  })
+  @ApiQuery({
+    name: 'skip',
+    required: false,
+    type: Number,
+    description: 'Number of items to skip (default: 0)',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Number of items to return (default: 10)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'List of draft testimonies with pagination metadata',
+    schema: {
+      type: 'object',
+      properties: {
+        data: {
+          type: 'array',
+          items: { $ref: '#/components/schemas/TestimonyResponseDto' },
+        },
+        meta: {
+          type: 'object',
+          properties: {
+            skip: { type: 'number' },
+            limit: { type: 'number' },
+            total: { type: 'number' },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async getDrafts(
+    @Request() req: { user: { userId: number } },
+    @Query('skip') skip?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const userId = req.user.userId;
+    const pageSkip = skip ? parseInt(skip, 10) : undefined;
+    const pageLimit = limit ? parseInt(limit, 10) : undefined;
+    return await this.testimonyService.getDrafts(userId, pageSkip, pageLimit);
+  }
+
   @Get(':id/related')
   @ApiOperation({ summary: 'Get related testimonies (stub for AI linking)' })
   @ApiParam({ name: 'id', type: Number })
