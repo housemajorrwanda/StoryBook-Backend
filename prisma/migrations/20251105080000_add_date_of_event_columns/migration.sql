@@ -15,7 +15,22 @@ ALTER TABLE "testimonies" ADD COLUMN IF NOT EXISTS "dateOfEventFrom" TIMESTAMP(3
 ALTER TABLE "testimonies" ADD COLUMN IF NOT EXISTS "dateOfEventTo" TIMESTAMP(3);
 
 -- Add draft support columns
-ALTER TABLE "testimonies" ADD COLUMN IF NOT EXISTS "isDraft" BOOLEAN NOT NULL DEFAULT false;
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'testimonies' AND column_name = 'isDraft'
+  ) THEN
+    -- Add column as nullable first with default
+    ALTER TABLE "testimonies" ADD COLUMN "isDraft" BOOLEAN DEFAULT false;
+    -- Update any NULL values (shouldn't be any, but just in case)
+    UPDATE "testimonies" SET "isDraft" = false WHERE "isDraft" IS NULL;
+    -- Now make it NOT NULL
+    ALTER TABLE "testimonies" ALTER COLUMN "isDraft" SET NOT NULL;
+    ALTER TABLE "testimonies" ALTER COLUMN "isDraft" SET DEFAULT false;
+  END IF;
+END $$;
+
 ALTER TABLE "testimonies" ADD COLUMN IF NOT EXISTS "draftCursorPosition" INTEGER;
 ALTER TABLE "testimonies" ADD COLUMN IF NOT EXISTS "draftLastSavedAt" TIMESTAMP(3);
 
