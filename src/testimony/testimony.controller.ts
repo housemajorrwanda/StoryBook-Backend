@@ -399,6 +399,34 @@ export class TestimonyController {
     return this.testimonyService.findUserTestimonies(req.user.userId);
   }
 
+  @Get('drafts')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: 'Get all draft testimonies for authenticated user',
+    description:
+      'Returns all draft testimonies for the authenticated user, ordered by last saved date.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'List of draft testimonies',
+    schema: {
+      type: 'object',
+      properties: {
+        data: {
+          type: 'array',
+          items: { $ref: '#/components/schemas/TestimonyResponseDto' },
+        },
+        total: { type: 'number' },
+      },
+    },
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async getDrafts(@Request() req: { user: { userId: number } }) {
+    const userId = req.user.userId;
+    return await this.testimonyService.getDrafts(userId);
+  }
+
   @Get(':id')
   @ApiOperation({
     summary:
@@ -458,34 +486,6 @@ export class TestimonyController {
     const userId = req.user.userId;
     const userRole = req.user.role;
     return this.testimonyService.getComparison(id, userId, userRole);
-  }
-
-  @Get('drafts')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('JWT-auth')
-  @ApiOperation({
-    summary: 'Get all draft testimonies for authenticated user',
-    description:
-      'Returns all draft testimonies for the authenticated user, ordered by last saved date.',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'List of draft testimonies',
-    schema: {
-      type: 'object',
-      properties: {
-        data: {
-          type: 'array',
-          items: { $ref: '#/components/schemas/TestimonyResponseDto' },
-        },
-        total: { type: 'number' },
-      },
-    },
-  })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async getDrafts(@Request() req: { user: { userId: number } }) {
-    const userId = req.user.userId;
-    return await this.testimonyService.getDrafts(userId);
   }
 
   @Get(':id/related')
