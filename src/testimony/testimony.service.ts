@@ -274,6 +274,132 @@ export class TestimonyService {
     }
   }
 
+  async getComparison(id: number, userId: number, userRole?: string) {
+    if (!id || id <= 0) {
+      throw new BadRequestException('Invalid testimony ID');
+    }
+
+    if (!userId || userId <= 0) {
+      throw new BadRequestException('Invalid user ID');
+    }
+
+    try {
+      const testimony = await this.prisma.testimony.findUnique({
+        where: { id },
+        include: {
+          images: {
+            orderBy: { order: 'asc' },
+          },
+          relatives: {
+            include: {
+              relativeType: true,
+            },
+            orderBy: { order: 'asc' },
+          },
+          user: {
+            select: {
+              id: true,
+              fullName: true,
+              residentPlace: true,
+            },
+          },
+        },
+      });
+
+      if (!testimony) {
+        throw new NotFoundException('Testimony not found');
+      }
+
+      // Allow access if user is admin OR is the testimony owner
+      const isAdmin = userRole === 'admin';
+      if (!isAdmin && testimony.userId !== userId) {
+        throw new ForbiddenException(
+          'You can only view comparison of your own testimonies',
+        );
+      }
+
+      // Get current version
+      const current = testimony;
+
+      // Check if there's a previous published version
+      const hasPreviousVersion =
+        !!testimony.lastPublishedAt && testimony.isPublished;
+
+      const changedFields: string[] = [];
+      const hasEdits =
+        testimony.lastEditedAt &&
+        testimony.lastPublishedAt &&
+        testimony.lastEditedAt > testimony.lastPublishedAt;
+
+      if (hasEdits) {
+        const editableFields = [
+          'eventTitle',
+          'eventDescription',
+          'fullTestimony',
+          'location',
+          'dateOfEventFrom',
+          'dateOfEventTo',
+        ];
+
+        // Only include fields that exist in the testimony
+        editableFields.forEach((field) => {
+          if (
+            field in testimony &&
+            testimony[field as keyof typeof testimony]
+          ) {
+            changedFields.push(field);
+          }
+        });
+
+        // Check for image changes
+        if (testimony.images && testimony.images.length > 0) {
+          changedFields.push('images');
+        }
+
+        // Check for relative changes
+        if (testimony.relatives && testimony.relatives.length > 0) {
+          changedFields.push('relatives');
+        }
+      }
+
+      return {
+        current: {
+          ...current,
+          impressions: current.impressions,
+        },
+        previous:
+          hasPreviousVersion && hasEdits
+            ? {
+                // Return structure representing last published state
+                // Note: Without version history, this is an approximation
+                // Store snapshots when publishing for accurate comparison
+                ...current,
+                // Use lastPublishedAt as the timestamp for the previous version
+                updatedAt: testimony.lastPublishedAt,
+                lastEditedAt: testimony.lastPublishedAt,
+              }
+            : undefined,
+        changedFields,
+        hasPreviousVersion,
+        lastPublishedAt: testimony.lastPublishedAt || undefined,
+        lastEditedAt: testimony.lastEditedAt || undefined,
+      };
+    } catch (error: unknown) {
+      if (
+        error &&
+        typeof error === 'object' &&
+        'status' in error &&
+        (error.status === 400 || error.status === 403 || error.status === 404)
+      ) {
+        throw error;
+      }
+      console.error('Error fetching testimony comparison:', error);
+      throw new InternalServerErrorException(
+        'Failed to fetch testimony comparison',
+      );
+    }
+  }
+
   async findOne(id: number, userId?: number, progressSeconds?: number) {
     if (!id || id <= 0) {
       throw new BadRequestException('Invalid testimony ID');

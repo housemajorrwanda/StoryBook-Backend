@@ -34,6 +34,7 @@ import {
 } from './dto/create-testimony.dto';
 import { UpdateTestimonyDto } from './dto/update-testimony.dto';
 import { TestimonyResponseDto } from './dto/testimony-response.dto';
+import { TestimonyComparisonDto } from './dto/testimony-comparison.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -428,6 +429,35 @@ export class TestimonyController {
     const userId = req.user?.userId;
     const progressSeconds = progress ? parseInt(progress, 10) : undefined;
     return this.testimonyService.findOne(id, userId, progressSeconds);
+  }
+
+  @Get(':id/comparison')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: 'Get comparison between current and previous published version',
+    description:
+      'Returns current editable version and previous published version for side-by-side comparison. Accessible by testimony owner or admin.',
+  })
+  @ApiParam({ name: 'id', type: Number })
+  @ApiResponse({
+    status: 200,
+    description: 'Comparison data with current and previous versions',
+    type: TestimonyComparisonDto,
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Not your testimony and not admin',
+  })
+  @ApiResponse({ status: 404, description: 'Testimony not found' })
+  async getComparison(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { userId: number; role?: string } },
+  ) {
+    const userId = req.user.userId;
+    const userRole = req.user.role;
+    return this.testimonyService.getComparison(id, userId, userRole);
   }
 
   @Get(':id/related')
