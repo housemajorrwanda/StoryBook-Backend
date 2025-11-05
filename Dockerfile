@@ -23,6 +23,10 @@ RUN npm run build
 # Remove dev dependencies after build
 RUN npm prune --production
 
+# Copy and make startup script executable
+COPY start.sh /app/start.sh
+RUN chmod +x /app/start.sh
+
 # Expose port
 EXPOSE 3009
 
@@ -38,5 +42,5 @@ USER nestjs
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:3009/api/v1/health || exit 1
 
-# Start the application
-CMD ["npm", "run", "start:prod"]
+# Start the application using the startup script
+CMD ["/app/start.sh"]
