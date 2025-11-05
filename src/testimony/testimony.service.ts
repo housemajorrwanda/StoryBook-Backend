@@ -669,50 +669,38 @@ export class TestimonyService {
     return this.findAll({ userId });
   }
 
-  async getDrafts(userId: number, skip?: number, limit?: number) {
+  async getDrafts(userId: number) {
     if (!userId || userId <= 0) {
       throw new BadRequestException('Invalid user ID');
     }
 
     try {
-      const pageSkip = skip ?? 0;
-      const pageLimit = limit ?? 10;
-
       const where = {
         userId,
         isDraft: true,
       };
 
-      const [drafts, total] = await Promise.all([
-        this.prisma.testimony.findMany({
-          where,
-          include: {
-            images: {
-              orderBy: { order: 'asc' },
-            },
-            relatives: {
-              orderBy: { order: 'asc' },
-              include: {
-                relativeType: {
-                  select: { id: true, slug: true, displayName: true },
-                },
+      const drafts = await this.prisma.testimony.findMany({
+        where,
+        include: {
+          images: {
+            orderBy: { order: 'asc' },
+          },
+          relatives: {
+            orderBy: { order: 'asc' },
+            include: {
+              relativeType: {
+                select: { id: true, slug: true, displayName: true },
               },
             },
           },
-          orderBy: [{ draftLastSavedAt: 'desc' }, { updatedAt: 'desc' }],
-          skip: pageSkip,
-          take: pageLimit,
-        }),
-        this.prisma.testimony.count({ where }),
-      ]);
+        },
+        orderBy: [{ draftLastSavedAt: 'desc' }, { updatedAt: 'desc' }],
+      });
 
       return {
         data: drafts,
-        meta: {
-          skip: pageSkip,
-          limit: pageLimit,
-          total,
-        },
+        total: drafts.length,
       };
     } catch (error: unknown) {
       console.error('Error fetching drafts:', error);

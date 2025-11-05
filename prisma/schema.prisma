@@ -65,6 +65,7 @@ model Testimony {
   isDraft               Boolean  @default(false)
   draftCursorPosition   Int?
   draftLastSavedAt      DateTime?
+  lastReminderSentAt    DateTime?  
 
   // Edit cadence control
   lastEditedAt          DateTime?
