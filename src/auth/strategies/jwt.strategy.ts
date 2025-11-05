@@ -20,13 +20,22 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: {
-    sub: number;
+    sub: number | string;
     email?: string;
     role?: string;
     fullName?: string | null;
   }) {
     try {
-      const user = await this.authService.validateUser(payload.sub);
+      const userId =
+        typeof payload.sub === 'string'
+          ? parseInt(payload.sub, 10)
+          : payload.sub;
+
+      if (!userId || isNaN(userId)) {
+        throw new UnauthorizedException('Invalid user ID in token');
+      }
+
+      const user = await this.authService.validateUser(userId);
       return {
         ...user,
         userId: user.id,
@@ -35,10 +44,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       };
     } catch (error) {
       console.error('Error validating user:', error);
-      if (error instanceof Error) {
-        throw new UnauthorizedException(
-          error instanceof Error ? error.message : 'Invalid token',
-        );
+      if (error instanceof UnauthorizedException) {
+        throw error;
       }
       throw new UnauthorizedException(
         error instanceof Error ? error.message : 'Invalid token',
