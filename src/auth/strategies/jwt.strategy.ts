@@ -32,7 +32,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
           : payload.sub;
 
       if (!userId || isNaN(userId)) {
-        throw new UnauthorizedException('Invalid user ID in token');
+        throw new UnauthorizedException(
+          `Invalid user ID in token: ${payload.sub}`,
+        );
       }
 
       const user = await this.authService.validateUser(userId);
@@ -43,7 +45,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         fullName: payload.fullName || user.fullName,
       };
     } catch (error) {
-      console.error('Error validating user:', error);
       if (error instanceof UnauthorizedException) {
         throw error;
       }

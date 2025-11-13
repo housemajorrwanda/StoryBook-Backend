@@ -39,6 +39,7 @@ import { UpdateStatusDto } from './dto/update-status.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import type { User } from '../user/user.types';
 
 @ApiTags('Testimonies')
 @Controller('testimonies')
@@ -122,7 +123,7 @@ export class TestimonyController {
   @ApiResponse({ status: 400, description: 'Bad request - validation failed' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async create(
-    @Request() req: { user: { userId: number } },
+    @Request() req: { user: User & { role?: string; fullName?: string } },
     @UploadedFiles()
     files: {
       images?: Express.Multer.File[];
@@ -131,7 +132,7 @@ export class TestimonyController {
     },
     @Body() body: Record<string, unknown> | CreateTestimonyDto,
   ) {
-    const userId = req.user.userId;
+    const userId = req.user.id;
 
     // Safely parse enums from body
     const submissionTypeCandidate =
@@ -366,7 +367,7 @@ export class TestimonyController {
     },
   })
   async findAll(
-    @Request() req: { user?: { userId: number; role?: string } },
+    @Request() req: { user?: User & { role?: string; fullName?: string } },
     @Query('skip') skip?: string,
     @Query('limit') limit?: string,
     @Query('search') search?: string,
@@ -416,9 +417,9 @@ export class TestimonyController {
     description: 'Unauthorized',
   })
   async findMyTestimonies(
-    @Request() req: { user: { userId: number; role?: string } },
+    @Request() req: { user: User & { role?: string; fullName?: string } },
   ) {
-    return this.testimonyService.findUserTestimonies(req.user.userId);
+    return this.testimonyService.findUserTestimonies(req.user.id);
   }
 
   @Get('drafts')
@@ -444,8 +445,10 @@ export class TestimonyController {
     },
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async getDrafts(@Request() req: { user: { userId: number } }) {
-    const userId = req.user.userId;
+  async getDrafts(
+    @Request() req: { user: User & { role?: string; fullName?: string } },
+  ) {
+    const userId = req.user.id;
     return await this.testimonyService.getDrafts(userId);
   }
 
@@ -473,10 +476,10 @@ export class TestimonyController {
   })
   async findOne(
     @Param('id', ParseIntPipe) id: number,
-    @Request() req: { user?: { userId: number } },
+    @Request() req: { user?: User & { role?: string; fullName?: string } },
     @Query('progress') progress?: string,
   ) {
-    const userId = req.user?.userId;
+    const userId = req.user?.id;
     const progressSeconds = progress ? parseInt(progress, 10) : undefined;
     return this.testimonyService.findOne(id, userId, progressSeconds);
   }
@@ -503,9 +506,9 @@ export class TestimonyController {
   @ApiResponse({ status: 404, description: 'Testimony not found' })
   async getComparison(
     @Param('id', ParseIntPipe) id: number,
-    @Request() req: { user: { userId: number; role?: string } },
+    @Request() req: { user: User & { role?: string; fullName?: string } },
   ) {
-    const userId = req.user.userId;
+    const userId = req.user.id;
     const userRole = req.user.role;
     return this.testimonyService.getComparison(id, userId, userRole);
   }
@@ -563,14 +566,10 @@ export class TestimonyController {
   })
   async update(
     @Param('id', ParseIntPipe) id: number,
-    @Request() req: { user: { userId: number } },
+    @Request() req: { user: User & { role?: string; fullName?: string } },
     @Body() updateTestimonyDto: UpdateTestimonyDto,
   ) {
-    return this.testimonyService.update(
-      id,
-      req.user.userId,
-      updateTestimonyDto,
-    );
+    return this.testimonyService.update(id, req.user.id, updateTestimonyDto);
   }
 
   @Delete(':id')
@@ -597,9 +596,9 @@ export class TestimonyController {
   })
   async remove(
     @Param('id', ParseIntPipe) id: number,
-    @Request() req: { user: { userId: number } },
+    @Request() req: { user: User & { role?: string; fullName?: string } },
   ) {
-    return this.testimonyService.remove(id, req.user.userId);
+    return this.testimonyService.remove(id, req.user.id);
   }
 
   @Patch(':id/status')
@@ -634,13 +633,13 @@ export class TestimonyController {
   })
   async updateStatus(
     @Param('id', ParseIntPipe) id: number,
-    @Request() req: { user: { userId: number; role?: string } },
+    @Request() req: { user: User & { role?: string; fullName?: string } },
     @Body() updateStatusDto: UpdateStatusDto,
   ) {
     return this.testimonyService.updateStatus(
       id,
       updateStatusDto.status,
-      req.user.userId,
+      req.user.id,
       updateStatusDto.feedback,
     );
   }

@@ -72,7 +72,11 @@ export class AuthService {
   async validateUser(userId: number) {
     const user = await this.userService.findById(userId);
     if (!user) {
-      throw new UnauthorizedException('User not found');
+      throw new UnauthorizedException(`User not found for ID: ${userId}`);
+    }
+
+    if (!user.isActive) {
+      throw new UnauthorizedException('User account is not active');
     }
     const { ...userWithoutPassword } = user;
     return userWithoutPassword;
