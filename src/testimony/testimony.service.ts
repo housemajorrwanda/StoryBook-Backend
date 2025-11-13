@@ -159,6 +159,7 @@ export class TestimonyService {
           eventTitle?: { contains: string; mode: 'insensitive' };
           eventDescription?: { contains: string; mode: 'insensitive' };
           fullName?: { contains: string; mode: 'insensitive' };
+          fullTestimony?: { contains: string; mode: 'insensitive' };
         }>;
       } = {};
 
