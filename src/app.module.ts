@@ -11,6 +11,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { TestimonyModule } from './testimony/testimony.module';
 import { UploadModule } from './upload/upload.module';
 import { VirtualTourModule } from './virtual-tour/virtual-tour.module';
+import { RelativeTypeSeeder } from './relative-type/relative-type.seeder';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { VirtualTourModule } from './virtual-tour/virtual-tour.module';
   controllers: [AppController],
   providers: [
     AppService,
+    RelativeTypeSeeder,
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
