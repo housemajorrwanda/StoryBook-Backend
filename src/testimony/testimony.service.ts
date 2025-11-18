@@ -50,6 +50,7 @@ export class TestimonyService {
         },
       });
 
+      // Save relatives with all structured data (relativeTypeId, notes, order)
       if (relatives && Array.isArray(relatives) && relatives.length > 0) {
         const validRelatives = relatives
           .filter(
