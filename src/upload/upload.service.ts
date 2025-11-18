@@ -75,9 +75,44 @@ export class UploadService {
           `Error uploading ${file.originalname} to Cloudinary:`,
           error,
         );
+
+        // Check for specific Cloudinary errors
+        let errorMessage = 'Failed to upload image';
+        if (error && typeof error === 'object') {
+          const cloudinaryError = error as {
+            http_code?: number;
+            message?: string;
+            name?: string;
+          };
+
+          // Cloudinary quota/storage errors
+          if (
+            cloudinaryError.http_code === 400 &&
+            (cloudinaryError.message?.includes('quota') ||
+              cloudinaryError.message?.includes('storage') ||
+              cloudinaryError.message?.includes('limit') ||
+              cloudinaryError.message?.includes('exceeded'))
+          ) {
+            errorMessage =
+              'Cloudinary storage quota exceeded. Please contact administrator.';
+            console.error(
+              `[Cloudinary] Storage/quota issue detected: ${cloudinaryError.message}`,
+            );
+          } else if (cloudinaryError.http_code === 401) {
+            errorMessage =
+              'Cloudinary authentication failed. Check API credentials.';
+          } else if (cloudinaryError.http_code === 403) {
+            errorMessage = 'Cloudinary access forbidden. Check permissions.';
+          } else if (cloudinaryError.message) {
+            errorMessage = `Cloudinary error: ${cloudinaryError.message}`;
+          }
+        } else if (error instanceof Error) {
+          errorMessage = error.message || 'Failed to upload image';
+        }
+
         failed.push({
           fileName: file.originalname,
-          error: 'Failed to upload image',
+          error: errorMessage,
         });
       }
     }
@@ -205,12 +240,20 @@ export class UploadService {
           error: UploadApiErrorResponse | undefined,
           result: UploadApiResponse | undefined,
         ) => {
-          if (error)
-            return reject(
-              new Error(error.message || 'Cloudinary upload error'),
-            );
+          if (error) {
+            // Preserve Cloudinary error details for better error handling
+            const cloudinaryError = new Error(
+              error.message || 'Cloudinary upload error',
+            ) as Error & {
+              http_code?: number;
+              name?: string;
+            };
+            cloudinaryError.http_code = error.http_code;
+            cloudinaryError.name = error.name;
+            return reject(cloudinaryError);
+          }
           if (result) return resolve(result);
-          reject(new Error('Upload failed'));
+          reject(new Error('Upload failed - no result or error returned'));
         },
       );
 
