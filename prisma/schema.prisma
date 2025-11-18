@@ -74,25 +74,24 @@ model Testimony {
   // Audio (for audio type)
   audioUrl              String?
   audioFileName         String?
-  audioDuration         Int?     // Duration in seconds
+  audioDuration         Int?    
   
   // Video (for video type)
   videoUrl              String?
   videoFileName         String?
-  videoDuration         Int?     // Duration in seconds
+  videoDuration         Int?     
   
-  // Images (optional for all types)
+  
   images                TestimonyImage[]
-  // Relatives (normalized, multi)
   relatives             TestimonyRelative[]
   
   // Consent
   agreedToTerms         Boolean  @default(false)
   
   // Status and metadata
-  status                String   @default("pending") // pending, approved, rejected, reported, feedback_requested
+  status                String   @default("pending") 
   isPublished           Boolean  @default(false)
-  impressions           Int      @default(0) // Track view count
+  impressions           Int      @default(0) 
 
   // AI text artifacts
   transcript            String?  @db.Text

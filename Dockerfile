@@ -15,7 +15,13 @@ RUN npm ci
 COPY . .
 
 # Generate Prisma client
-RUN npx prisma generate
+RUN npx prisma generate 
+
+# Run migrations
+RUN npm run db:migrate
+
+# Seed the database
+RUN npm run db:seed
 
 # Build the application
 RUN npm run build
