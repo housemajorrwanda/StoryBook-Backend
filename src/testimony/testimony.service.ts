@@ -95,19 +95,29 @@ export class TestimonyService {
     } catch (error: unknown) {
       console.error('Error creating testimony:', error);
 
-      // Re-throw HTTP exceptions (like BadRequestException from validation)
       if (error && typeof error === 'object' && 'status' in error) {
         throw error;
       }
 
       // Handle Prisma errors
       if (error && typeof error === 'object' && 'code' in error) {
-        if (error.code === 'P2003') {
+        if (
+          (error as any as { meta?: { constraint?: string } } | undefined)?.meta
+            ?.constraint === 'testimonies_userId_fkey'
+        ) {
           throw new BadRequestException(
             'Invalid user ID - user does not exist',
           );
         }
-        if (error.code === 'P2002') {
+        if (
+          (error as any as { meta?: { constraint?: string } } | undefined)?.meta
+            ?.constraint === 'testimony_relatives_relativeTypeId_fkey'
+        ) {
+          throw new BadRequestException(
+            'Invalid relative type. Please select a valid relation.',
+          );
+        }
+        if ((error as any as { code?: string } | undefined)?.code === 'P2002') {
           throw new BadRequestException(
             'A testimony with this data already exists',
           );

@@ -1,36 +1,28 @@
 import { PrismaClient } from '@prisma/client';
-import * as bcrypt from 'bcryptjs';
-
 const prisma = new PrismaClient();
 
 async function main() {
-  // Check if admin user already exists
-  const existingAdmin = await prisma.user.findUnique({
-    where: { email: 'admin@housemajor.com' },
-  });
-
-  if (existingAdmin) {
-    console.log('ℹ️  Admin user already exists, skipping seed');
-    return;
+  const data = [
+    { slug: 'survivor', displayName: 'Survivor' },
+    { slug: 'witness', displayName: 'Witness' },
+    { slug: 'family_member', displayName: 'Family Member' },
+    { slug: 'friend', displayName: 'Friend' },
+    { slug: 'community_member', displayName: 'Community Member' },
+    { slug: 'other', displayName: 'Other' },
+  ];
+  for (const entry of data) {
+    await prisma.relativeType.upsert({
+      where: { slug: entry.slug },
+      update: entry,
+      create: entry,
+    });
   }
-
-  await prisma.user.create({
-    data: {
-      email: 'admin@housemajor.com',
-      fullName: 'John Doe',
-      password: await bcrypt.hash('admin', 10),
-      role: 'admin',
-    },
-  });
-  console.log('✅ Admin user created');
+  console.log('✅ relative_types table seeded');
 }
 
 main()
   .catch((e) => {
-    console.error('❌ Error seeding database:', e);
+    console.error(e);
     process.exit(1);
   })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
-
+  .finally(() => prisma.$disconnect());
