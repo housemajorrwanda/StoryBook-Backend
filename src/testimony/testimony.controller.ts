@@ -187,31 +187,9 @@ export class TestimonyController {
       fullName: typeof body.fullName === 'string' ? body.fullName : undefined,
       relationToEvent,
       nameOfRelative:
-        typeof body.nameOfRelative === 'string'
-          ? body.nameOfRelative
+        typeof body.nameOfRelative === 'string' && body.nameOfRelative.trim()
+          ? body.nameOfRelative.trim()
           : undefined,
-      relatives: (() => {
-        const relativesData = body.relatives;
-        if (!relativesData) return undefined;
-        if (typeof relativesData === 'string') {
-          try {
-            const parsed = JSON.parse(relativesData) as unknown;
-            return Array.isArray(parsed) ? parsed : undefined;
-          } catch {
-            return undefined;
-          }
-        }
-        if (Array.isArray(relativesData)) {
-          return relativesData as Array<{
-            relativeTypeId?: number;
-            personName?: string;
-            notes?: string;
-            order?: number;
-          }>;
-        }
-
-        return undefined;
-      })(),
       location: typeof body.location === 'string' ? body.location : undefined,
       dateOfEventFrom:
         typeof body.dateOfEventFrom === 'string'
