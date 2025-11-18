@@ -18,10 +18,6 @@ export class TestimonyService {
   ) {}
 
   async create(userId: number, createTestimonyDto: CreateTestimonyDto) {
-    if (!userId || userId <= 0) {
-      throw new BadRequestException('Invalid user ID');
-    }
-
     // Only require agreedToTerms when NOT saving as draft
     if (!createTestimonyDto.isDraft && !createTestimonyDto.agreedToTerms) {
       throw new BadRequestException(
