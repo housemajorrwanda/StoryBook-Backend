@@ -257,38 +257,53 @@ export class TestimonyController {
     };
 
     // Upload images if provided
-    if (files?.images && files.images.length > 0) {
-      const uploaded = await this.uploadService.uploadMultipleImages(
-        files.images,
-      );
+    const imageFiles = files?.images;
+    if (imageFiles && Array.isArray(imageFiles) && imageFiles.length > 0) {
+      try {
+        const uploaded =
+          await this.uploadService.uploadMultipleImages(imageFiles);
 
-      const rawDescriptions =
-        (body as Record<string, unknown>)['imagesDescriptions'] ??
-        (body as Record<string, unknown>)['imageDescriptions'];
+        // Check if any uploads failed
+        if (uploaded.failed.length > 0) {
+          console.warn(
+            `Some images failed to upload: ${uploaded.failed.map((f) => `${f.fileName} (${f.error})`).join(', ')}`,
+          );
+        }
 
-      let descriptions: string[] = [];
-      if (Array.isArray(rawDescriptions)) {
-        descriptions = rawDescriptions
-          .map((d) => (typeof d === 'string' ? d : ''))
-          .map((d) => d.trim())
-          .map((d) => (d.length > 500 ? d.slice(0, 500) : d));
-      } else if (typeof rawDescriptions === 'string') {
-        const d = rawDescriptions.trim();
-        descriptions = [d.length > 500 ? d.slice(0, 500) : d];
-      }
+        if (uploaded.successful.length === 0) {
+          console.error(
+            `All image uploads failed. Errors: ${uploaded.failed.map((f) => `${f.fileName}: ${f.error}`).join(', ')}`,
+          );
+        } else {
+          const rawDescriptions =
+            (body as Record<string, unknown>)['imagesDescriptions'] ??
+            (body as Record<string, unknown>)['imageDescriptions'];
 
-      dto.images = uploaded.successful.map((img, index) => ({
-        imageUrl: img.url,
-        imageFileName: img.fileName,
-        description:
-          typeof descriptions[index] === 'string' && descriptions[index].length
-            ? descriptions[index]
-            : undefined,
-        order: index,
-      }));
-      // If all failed, keep images undefined
-      if (dto.images.length === 0) {
-        dto.images = undefined;
+          let descriptions: string[] = [];
+          if (Array.isArray(rawDescriptions)) {
+            descriptions = rawDescriptions
+              .map((d) => (typeof d === 'string' ? d : ''))
+              .map((d) => d.trim())
+              .map((d) => (d.length > 500 ? d.slice(0, 500) : d));
+          } else if (typeof rawDescriptions === 'string') {
+            const d = rawDescriptions.trim();
+            descriptions = [d.length > 500 ? d.slice(0, 500) : d];
+          }
+
+          dto.images = uploaded.successful.map((img, index) => ({
+            imageUrl: img.url,
+            imageFileName: img.fileName,
+            description:
+              typeof descriptions[index] === 'string' &&
+              descriptions[index].length
+                ? descriptions[index]
+                : undefined,
+            order: index,
+          }));
+        }
+      } catch (error) {
+        console.error('Error uploading images:', error);
+        // Don't throw - allow testimony to be created without images
       }
     }
 
