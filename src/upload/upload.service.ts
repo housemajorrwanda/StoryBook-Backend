@@ -153,7 +153,16 @@ export class UploadService {
       'audio/aac',
       'audio/webm',
     ];
-    if (!allowedTypes.includes(file.mimetype)) {
+    const normalizedMimeType = file.mimetype?.toLowerCase().trim() || '';
+    const fileExtension = file.originalname.toLowerCase().split('.').pop();
+    const allowedExtensions = ['mp3', 'wav', 'ogg', 'm4a', 'aac', 'webm'];
+
+    const isValidMimeType =
+      allowedTypes.includes(file.mimetype) ||
+      allowedTypes.includes(normalizedMimeType);
+    const isValidExtension = allowedExtensions.includes(fileExtension || '');
+
+    if (!isValidMimeType && !isValidExtension) {
       throw new BadRequestException(
         'Invalid file type. Only MP3, WAV, OGG, and M4A audio files are allowed',
       );
@@ -204,7 +213,16 @@ export class UploadService {
       'video/x-msvideo',
       'video/webm',
     ];
-    if (!allowedTypes.includes(file.mimetype)) {
+    const normalizedMimeType = file.mimetype?.toLowerCase().trim() || '';
+    const fileExtension = file.originalname.toLowerCase().split('.').pop();
+    const allowedExtensions = ['mp4', 'mpeg', 'mov', 'avi', 'webm'];
+
+    const isValidMimeType =
+      allowedTypes.includes(file.mimetype) ||
+      allowedTypes.includes(normalizedMimeType);
+    const isValidExtension = allowedExtensions.includes(fileExtension || '');
+
+    if (!isValidMimeType && !isValidExtension) {
       throw new BadRequestException(
         'Invalid file type. Only MP4, MPEG, MOV, AVI, and WebM video files are allowed',
       );
