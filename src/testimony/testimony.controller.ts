@@ -12,6 +12,7 @@ import {
   ParseIntPipe,
   HttpCode,
   HttpStatus,
+  UnauthorizedException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -48,6 +49,16 @@ export class TestimonyController {
     private readonly testimonyService: TestimonyService,
     private readonly uploadService: UploadService,
   ) {}
+
+  private getAuthenticatedUserId(req: {
+    user?: User & { role?: string; fullName?: string };
+  }): number {
+    const userId = req.user?.id;
+    if (!userId || userId <= 0) {
+      throw new UnauthorizedException('Authentication is required');
+    }
+    return userId;
+  }
 
   @Post()
   @UseGuards(JwtAuthGuard)
@@ -132,7 +143,7 @@ export class TestimonyController {
     },
     @Body() body: Record<string, unknown> | CreateTestimonyDto,
   ) {
-    const userId = req.user.id;
+    const userId = this.getAuthenticatedUserId(req);
 
     // Safely parse enums from body
     const submissionTypeCandidate =
@@ -419,7 +430,8 @@ export class TestimonyController {
   async findMyTestimonies(
     @Request() req: { user: User & { role?: string; fullName?: string } },
   ) {
-    return this.testimonyService.findUserTestimonies(req.user.id);
+    const userId = this.getAuthenticatedUserId(req);
+    return this.testimonyService.findUserTestimonies(userId);
   }
 
   @Get('drafts')
@@ -448,7 +460,7 @@ export class TestimonyController {
   async getDrafts(
     @Request() req: { user: User & { role?: string; fullName?: string } },
   ) {
-    const userId = req.user.id;
+    const userId = this.getAuthenticatedUserId(req);
     return await this.testimonyService.getDrafts(userId);
   }
 
@@ -508,7 +520,7 @@ export class TestimonyController {
     @Param('id', ParseIntPipe) id: number,
     @Request() req: { user: User & { role?: string; fullName?: string } },
   ) {
-    const userId = req.user.id;
+    const userId = this.getAuthenticatedUserId(req);
     const userRole = req.user.role;
     return this.testimonyService.getComparison(id, userId, userRole);
   }
@@ -569,7 +581,8 @@ export class TestimonyController {
     @Request() req: { user: User & { role?: string; fullName?: string } },
     @Body() updateTestimonyDto: UpdateTestimonyDto,
   ) {
-    return this.testimonyService.update(id, req.user.id, updateTestimonyDto);
+    const userId = this.getAuthenticatedUserId(req);
+    return this.testimonyService.update(id, userId, updateTestimonyDto);
   }
 
   @Delete(':id')
@@ -598,7 +611,8 @@ export class TestimonyController {
     @Param('id', ParseIntPipe) id: number,
     @Request() req: { user: User & { role?: string; fullName?: string } },
   ) {
-    return this.testimonyService.remove(id, req.user.id);
+    const userId = this.getAuthenticatedUserId(req);
+    return this.testimonyService.remove(id, userId);
   }
 
   @Patch(':id/status')
@@ -636,10 +650,11 @@ export class TestimonyController {
     @Request() req: { user: User & { role?: string; fullName?: string } },
     @Body() updateStatusDto: UpdateStatusDto,
   ) {
+    const userId = this.getAuthenticatedUserId(req);
     return this.testimonyService.updateStatus(
       id,
       updateStatusDto.status,
-      req.user.id,
+      userId,
       updateStatusDto.feedback,
     );
   }
