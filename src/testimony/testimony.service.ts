@@ -26,12 +26,7 @@ export class TestimonyService {
     }
 
     try {
-      const {
-        images,
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        relatives: _ignoredRelatives,
-        ...testimonyData
-      } = createTestimonyDto;
+      const { images, relatives, ...testimonyData } = createTestimonyDto;
 
       const created = await this.prisma.testimony.create({
         data: {
@@ -55,11 +50,45 @@ export class TestimonyService {
         },
       });
 
-      // Return fully loaded testimony
+      // Save relatives with all structured data (relativeTypeId, notes, order)
+      if (relatives && Array.isArray(relatives) && relatives.length > 0) {
+        const validRelatives = relatives
+          .filter(
+            (r) =>
+              r.personName &&
+              typeof r.personName === 'string' &&
+              r.personName.trim().length > 0 &&
+              r.relativeTypeId,
+          )
+          .map((r, idx) => ({
+            testimonyId: created.id,
+            relativeTypeId: r.relativeTypeId!,
+            personName: r.personName!.trim(),
+            notes: r.notes,
+            order: r.order ?? idx,
+          }));
+
+        if (validRelatives.length > 0) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+          await (this.prisma as any).testimonyRelative.createMany({
+            data: validRelatives,
+          });
+        }
+      }
+
+      // Return fully loaded testimony including relatives
       const full = await this.prisma.testimony.findUnique({
         where: { id: created.id },
         include: {
           images: { orderBy: { order: 'asc' } },
+          relatives: {
+            orderBy: { order: 'asc' },
+            include: {
+              relativeType: {
+                select: { id: true, slug: true, displayName: true },
+              },
+            },
+          },
         },
       });
 
