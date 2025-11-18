@@ -215,6 +215,14 @@ export class TestimonyService {
             images: {
               orderBy: { order: 'asc' },
             },
+            relatives: {
+              orderBy: { order: 'asc' },
+              include: {
+                relativeType: {
+                  select: { id: true, slug: true, displayName: true },
+                },
+              },
+            },
             user: {
               select: {
                 id: true,
@@ -419,6 +427,14 @@ export class TestimonyService {
         include: {
           images: {
             orderBy: { order: 'asc' },
+          },
+          relatives: {
+            orderBy: { order: 'asc' },
+            include: {
+              relativeType: {
+                select: { id: true, slug: true, displayName: true },
+              },
+            },
           },
           user: {
             select: {

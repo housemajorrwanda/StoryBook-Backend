@@ -90,20 +90,6 @@ export class CreateTestimonyDto {
   relationToEvent?: RelationToEvent;
 
   @ApiProperty({
-    description: 'Name of relative (if applicable)',
-    example: 'Jane Doe',
-    required: false,
-  })
-  @IsString({ message: 'Name of relative must be a string' })
-  @MaxLength(200, {
-    message: 'Name of relative must not exceed 200 characters',
-  })
-  @IsOptional()
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return
-  @Transform(({ value }) => value?.trim())
-  nameOfRelative?: string;
-
-  @ApiProperty({
     description: 'Location of the event',
     example: 'Kigali, Rwanda',
     required: false,

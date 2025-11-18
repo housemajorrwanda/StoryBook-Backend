@@ -186,41 +186,6 @@ export class TestimonyController {
       identityPreference: identityPreference as IdentityPreference,
       fullName: typeof body.fullName === 'string' ? body.fullName : undefined,
       relationToEvent,
-      nameOfRelative: (() => {
-        if (
-          typeof body.nameOfRelative === 'string' &&
-          body.nameOfRelative.trim()
-        ) {
-          return body.nameOfRelative.trim();
-        }
-        const relativesData = body.relatives;
-        if (relativesData) {
-          let parsed: Array<{ personName?: string }> = [];
-          if (typeof relativesData === 'string') {
-            try {
-              const jsonParsed = JSON.parse(relativesData) as unknown;
-              if (Array.isArray(jsonParsed)) {
-                parsed = jsonParsed as Array<{ personName?: string }>;
-              }
-            } catch (error) {
-              console.error('Error parsing relatives data:', error);
-            }
-          } else if (Array.isArray(relativesData)) {
-            parsed = relativesData as Array<{ personName?: string }>;
-          }
-          const names = parsed
-            .map((rel) => rel.personName)
-            .filter(
-              (name): name is string =>
-                typeof name === 'string' && name.trim().length > 0,
-            )
-            .map((name) => name.trim());
-          if (names.length > 0) {
-            return names.join(', ');
-          }
-        }
-        return undefined;
-      })(),
       relatives: (() => {
         const relativesData = body.relatives;
         if (!relativesData) return undefined;
