@@ -34,7 +34,8 @@ export class UploadService {
       error: string;
     }> = [];
 
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
+    // const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
+    const allowedTypes = ['image/'];
     const maxSize = 5 * 1024 * 1024; // 5MB
 
     // Process each file
@@ -44,8 +45,7 @@ export class UploadService {
         if (!allowedTypes.includes(file.mimetype)) {
           failed.push({
             fileName: file.originalname,
-            error:
-              'Invalid file type. Only JPEG, PNG, and WebP images are allowed',
+            error: 'Invalid file type. Only image files are allowed',
           });
           continue;
         }
