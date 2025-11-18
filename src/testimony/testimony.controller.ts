@@ -144,9 +144,6 @@ export class TestimonyController {
     @Body() body: Record<string, unknown> | CreateTestimonyDto,
   ) {
     const userId = this.getAuthenticatedUserId(req);
-    console.log('[TestimonyController] Authenticated user payload:', req.user);
-    console.log('[TestimonyController] Resolved userId:', userId);
-
     // Safely parse enums from body
     const submissionTypeCandidate =
       typeof body.submissionType === 'string' ? body.submissionType : undefined;
