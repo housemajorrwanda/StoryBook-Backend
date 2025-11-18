@@ -5,7 +5,7 @@ import { IsBoolean, ValidateIf } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 export class UpdateTestimonyDto extends PartialType(
-  OmitType(CreateTestimonyDto, ['submissionType'] as const),
+  OmitType(CreateTestimonyDto, ['submissionType', 'relatives'] as const),
 ) {
   @ApiPropertyOptional({
     description:

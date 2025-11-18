@@ -37,9 +37,6 @@ export class TestimonyResponseDto {
   relationToEvent?: string;
 
   @ApiProperty({ required: false })
-  nameOfRelative?: string;
-
-  @ApiProperty({ required: false })
   location?: string;
 
   @ApiProperty({ required: false })
