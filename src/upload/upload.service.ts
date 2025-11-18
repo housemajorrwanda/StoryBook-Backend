@@ -40,8 +40,22 @@ export class UploadService {
     // Process each file
     for (const file of files) {
       try {
-        // Validate file type
-        if (!allowedTypes.includes(file.mimetype)) {
+        const normalizedMimeType = file.mimetype?.toLowerCase().trim() || '';
+
+        const fileExtension = file.originalname.toLowerCase().split('.').pop();
+        const allowedExtensions = ['jpg', 'jpeg', 'png', 'webp'];
+
+        const isValidMimeType =
+          allowedTypes.includes(file.mimetype) ||
+          allowedTypes.includes(normalizedMimeType);
+        const isValidExtension = allowedExtensions.includes(
+          fileExtension || '',
+        );
+
+        if (!isValidMimeType && !isValidExtension) {
+          console.warn(
+            `[Upload] File type rejected: "${file.originalname}" - MIME: "${file.mimetype}" (normalized: "${normalizedMimeType}"), Extension: "${fileExtension}"`,
+          );
           failed.push({
             fileName: file.originalname,
             error:
@@ -50,7 +64,6 @@ export class UploadService {
           continue;
         }
 
-        // Validate file size
         if (file.size > maxSize) {
           failed.push({
             fileName: file.originalname,
@@ -59,7 +72,6 @@ export class UploadService {
           continue;
         }
 
-        // Upload to Cloudinary
         const result = await this.uploadToCloudinary(
           file,
           'testimonies/images',
