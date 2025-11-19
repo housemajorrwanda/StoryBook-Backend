@@ -41,8 +41,22 @@ export class UploadService {
     // Process each file
     for (const file of files) {
       try {
-        // Validate file type
-        if (!allowedTypes.includes(file.mimetype)) {
+        const normalizedMimeType = file.mimetype?.toLowerCase().trim() || '';
+
+        const fileExtension = file.originalname.toLowerCase().split('.').pop();
+        const allowedExtensions = ['jpg', 'jpeg', 'png', 'webp'];
+
+        const isValidMimeType =
+          allowedTypes.includes(file.mimetype) ||
+          allowedTypes.includes(normalizedMimeType);
+        const isValidExtension = allowedExtensions.includes(
+          fileExtension || '',
+        );
+
+        if (!isValidMimeType && !isValidExtension) {
+          console.warn(
+            `[Upload] File type rejected: "${file.originalname}" - MIME: "${file.mimetype}" (normalized: "${normalizedMimeType}"), Extension: "${fileExtension}"`,
+          );
           failed.push({
             fileName: file.originalname,
             error: 'Invalid file type. Only image files are allowed',
@@ -50,7 +64,6 @@ export class UploadService {
           continue;
         }
 
-        // Validate file size
         if (file.size > maxSize) {
           failed.push({
             fileName: file.originalname,
@@ -59,7 +72,6 @@ export class UploadService {
           continue;
         }
 
-        // Upload to Cloudinary
         const result = await this.uploadToCloudinary(
           file,
           'testimonies/images',
@@ -75,9 +87,44 @@ export class UploadService {
           `Error uploading ${file.originalname} to Cloudinary:`,
           error,
         );
+
+        // Check for specific Cloudinary errors
+        let errorMessage = 'Failed to upload image';
+        if (error && typeof error === 'object') {
+          const cloudinaryError = error as {
+            http_code?: number;
+            message?: string;
+            name?: string;
+          };
+
+          // Cloudinary quota/storage errors
+          if (
+            cloudinaryError.http_code === 400 &&
+            (cloudinaryError.message?.includes('quota') ||
+              cloudinaryError.message?.includes('storage') ||
+              cloudinaryError.message?.includes('limit') ||
+              cloudinaryError.message?.includes('exceeded'))
+          ) {
+            errorMessage =
+              'Cloudinary storage quota exceeded. Please contact administrator.';
+            console.error(
+              `[Cloudinary] Storage/quota issue detected: ${cloudinaryError.message}`,
+            );
+          } else if (cloudinaryError.http_code === 401) {
+            errorMessage =
+              'Cloudinary authentication failed. Check API credentials.';
+          } else if (cloudinaryError.http_code === 403) {
+            errorMessage = 'Cloudinary access forbidden. Check permissions.';
+          } else if (cloudinaryError.message) {
+            errorMessage = `Cloudinary error: ${cloudinaryError.message}`;
+          }
+        } else if (error instanceof Error) {
+          errorMessage = error.message || 'Failed to upload image';
+        }
+
         failed.push({
           fileName: file.originalname,
-          error: 'Failed to upload image',
+          error: errorMessage,
         });
       }
     }
@@ -106,7 +153,16 @@ export class UploadService {
       'audio/aac',
       'audio/webm',
     ];
-    if (!allowedTypes.includes(file.mimetype)) {
+    const normalizedMimeType = file.mimetype?.toLowerCase().trim() || '';
+    const fileExtension = file.originalname.toLowerCase().split('.').pop();
+    const allowedExtensions = ['mp3', 'wav', 'ogg', 'm4a', 'aac', 'webm'];
+
+    const isValidMimeType =
+      allowedTypes.includes(file.mimetype) ||
+      allowedTypes.includes(normalizedMimeType);
+    const isValidExtension = allowedExtensions.includes(fileExtension || '');
+
+    if (!isValidMimeType && !isValidExtension) {
       throw new BadRequestException(
         'Invalid file type. Only MP3, WAV, OGG, and M4A audio files are allowed',
       );
@@ -157,7 +213,16 @@ export class UploadService {
       'video/x-msvideo',
       'video/webm',
     ];
-    if (!allowedTypes.includes(file.mimetype)) {
+    const normalizedMimeType = file.mimetype?.toLowerCase().trim() || '';
+    const fileExtension = file.originalname.toLowerCase().split('.').pop();
+    const allowedExtensions = ['mp4', 'mpeg', 'mov', 'avi', 'webm'];
+
+    const isValidMimeType =
+      allowedTypes.includes(file.mimetype) ||
+      allowedTypes.includes(normalizedMimeType);
+    const isValidExtension = allowedExtensions.includes(fileExtension || '');
+
+    if (!isValidMimeType && !isValidExtension) {
       throw new BadRequestException(
         'Invalid file type. Only MP4, MPEG, MOV, AVI, and WebM video files are allowed',
       );
@@ -205,12 +270,20 @@ export class UploadService {
           error: UploadApiErrorResponse | undefined,
           result: UploadApiResponse | undefined,
         ) => {
-          if (error)
-            return reject(
-              new Error(error.message || 'Cloudinary upload error'),
-            );
+          if (error) {
+            // Preserve Cloudinary error details for better error handling
+            const cloudinaryError = new Error(
+              error.message || 'Cloudinary upload error',
+            ) as Error & {
+              http_code?: number;
+              name?: string;
+            };
+            cloudinaryError.http_code = error.http_code;
+            cloudinaryError.name = error.name;
+            return reject(cloudinaryError);
+          }
           if (result) return resolve(result);
-          reject(new Error('Upload failed'));
+          reject(new Error('Upload failed - no result or error returned'));
         },
       );
 

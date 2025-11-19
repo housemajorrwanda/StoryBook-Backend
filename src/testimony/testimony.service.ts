@@ -50,6 +50,7 @@ export class TestimonyService {
         },
       });
 
+      // Save relatives with all structured data (relativeTypeId, notes, order)
       if (relatives && Array.isArray(relatives) && relatives.length > 0) {
         const validRelatives = relatives
           .filter(
@@ -213,6 +214,14 @@ export class TestimonyService {
           include: {
             images: {
               orderBy: { order: 'asc' },
+            },
+            relatives: {
+              orderBy: { order: 'asc' },
+              include: {
+                relativeType: {
+                  select: { id: true, slug: true, displayName: true },
+                },
+              },
             },
             user: {
               select: {
@@ -418,6 +427,14 @@ export class TestimonyService {
         include: {
           images: {
             orderBy: { order: 'asc' },
+          },
+          relatives: {
+            orderBy: { order: 'asc' },
+            include: {
+              relativeType: {
+                select: { id: true, slug: true, displayName: true },
+              },
+            },
           },
           user: {
             select: {

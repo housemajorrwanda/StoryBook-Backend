@@ -186,17 +186,20 @@ export class TestimonyController {
       identityPreference: identityPreference as IdentityPreference,
       fullName: typeof body.fullName === 'string' ? body.fullName : undefined,
       relationToEvent,
-      nameOfRelative:
-        typeof body.nameOfRelative === 'string'
-          ? body.nameOfRelative
-          : undefined,
       relatives: (() => {
         const relativesData = body.relatives;
         if (!relativesData) return undefined;
         if (typeof relativesData === 'string') {
           try {
             const parsed = JSON.parse(relativesData) as unknown;
-            return Array.isArray(parsed) ? parsed : undefined;
+            return Array.isArray(parsed)
+              ? (parsed as Array<{
+                  relativeTypeId?: number;
+                  personName?: string;
+                  notes?: string;
+                  order?: number;
+                }>)
+              : undefined;
           } catch {
             return undefined;
           }
@@ -209,7 +212,6 @@ export class TestimonyController {
             order?: number;
           }>;
         }
-
         return undefined;
       })(),
       location: typeof body.location === 'string' ? body.location : undefined,
@@ -255,38 +257,101 @@ export class TestimonyController {
     };
 
     // Upload images if provided
-    if (files?.images && files.images.length > 0) {
-      const uploaded = await this.uploadService.uploadMultipleImages(
-        files.images,
+    const imageFiles = files?.images;
+    if (imageFiles && Array.isArray(imageFiles) && imageFiles.length > 0) {
+      console.log(
+        `[Testimony] Attempting to upload ${imageFiles.length} image(s)`,
       );
+      imageFiles.forEach((file, idx) => {
+        console.log(
+          `[Testimony] Image ${idx + 1}: ${file.originalname} (${file.size} bytes, ${file.mimetype})`,
+        );
+      });
 
-      const rawDescriptions =
-        (body as Record<string, unknown>)['imagesDescriptions'] ??
-        (body as Record<string, unknown>)['imageDescriptions'];
+      try {
+        const uploaded =
+          await this.uploadService.uploadMultipleImages(imageFiles);
 
-      let descriptions: string[] = [];
-      if (Array.isArray(rawDescriptions)) {
-        descriptions = rawDescriptions
-          .map((d) => (typeof d === 'string' ? d : ''))
-          .map((d) => d.trim())
-          .map((d) => (d.length > 500 ? d.slice(0, 500) : d));
-      } else if (typeof rawDescriptions === 'string') {
-        const d = rawDescriptions.trim();
-        descriptions = [d.length > 500 ? d.slice(0, 500) : d];
+        // Log upload results summary
+        console.log(
+          `[Testimony] Upload results: ${uploaded.successful.length} successful, ${uploaded.failed.length} failed`,
+        );
+
+        // Check if any uploads failed
+        if (uploaded.failed.length > 0) {
+          console.warn(
+            `[Testimony] Some images failed to upload:`,
+            uploaded.failed.map((f) => `  - ${f.fileName}: ${f.error}`),
+          );
+        }
+
+        // Check if all uploads failed
+        if (uploaded.successful.length === 0) {
+          console.error(
+            `[Testimony] All image uploads failed for testimony. Details:`,
+            uploaded.failed.map((f) => `  - ${f.fileName}: ${f.error}`),
+          );
+          console.error(
+            `[Testimony] Testimony will be created without images. Check Cloudinary configuration and file validation.`,
+          );
+        } else {
+          // Log successful uploads
+          console.log(
+            `[Testimony] Successfully uploaded images:`,
+            uploaded.successful.map((s) => `  - ${s.fileName} -> ${s.url}`),
+          );
+
+          const rawDescriptions =
+            (body as Record<string, unknown>)['imagesDescriptions'] ??
+            (body as Record<string, unknown>)['imageDescriptions'];
+
+          let descriptions: string[] = [];
+          if (Array.isArray(rawDescriptions)) {
+            descriptions = rawDescriptions
+              .map((d) => (typeof d === 'string' ? d : ''))
+              .map((d) => d.trim())
+              .map((d) => (d.length > 500 ? d.slice(0, 500) : d));
+          } else if (typeof rawDescriptions === 'string') {
+            const d = rawDescriptions.trim();
+            descriptions = [d.length > 500 ? d.slice(0, 500) : d];
+          }
+
+          dto.images = uploaded.successful.map((img, index) => ({
+            imageUrl: img.url,
+            imageFileName: img.fileName,
+            description:
+              typeof descriptions[index] === 'string' &&
+              descriptions[index].length
+                ? descriptions[index]
+                : undefined,
+            order: index,
+          }));
+
+          console.log(
+            `[Testimony] Prepared ${dto.images.length} image(s) for database storage`,
+          );
+        }
+      } catch (error) {
+        console.error('[Testimony] Error uploading images:', error);
+        if (error instanceof Error) {
+          console.error(`[Testimony] Error message: ${error.message}`);
+          console.error(`[Testimony] Error stack: ${error.stack}`);
+        }
+        console.error(
+          `[Testimony] Testimony will be created without images due to upload error.`,
+        );
+        // Don't throw - allow testimony to be created without images
       }
-
-      dto.images = uploaded.successful.map((img, index) => ({
-        imageUrl: img.url,
-        imageFileName: img.fileName,
-        description:
-          typeof descriptions[index] === 'string' && descriptions[index].length
-            ? descriptions[index]
-            : undefined,
-        order: index,
-      }));
-      // If all failed, keep images undefined
-      if (dto.images.length === 0) {
-        dto.images = undefined;
+    } else {
+      // Log when no images are provided (for debugging)
+      if (!files?.images) {
+        console.log('[Testimony] No images field in files object');
+      } else if (!Array.isArray(files.images)) {
+        console.warn(
+          `[Testimony] Images field is not an array: ${typeof files.images}`,
+        );
+      } else if (files.images.length === 0) {
+        console.log('[Testimony] Images array is empty');
       }
     }
 
