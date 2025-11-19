@@ -28,12 +28,23 @@ import {
   ApiBody,
 } from '@nestjs/swagger';
 import { VirtualTourService } from './virtual-tour.service';
-import { CreateVirtualTourDto, TourType } from './dto/create-virtual-tour.dto';
+import { CreateVirtualTourDto, TourStatus, TourType } from './dto/create-virtual-tour.dto';
 import { UpdateVirtualTourDto } from './dto/update-virtual-tour.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UploadService } from '../upload/upload.service';
+
+interface UploadedTourFiles {
+  tourFile?: Express.Multer.File[];
+  audioFiles?: Express.Multer.File[];
+  imageFiles?: Express.Multer.File[];
+  videoFiles?: Express.Multer.File[];
+  hotspotAudioFiles?: Express.Multer.File[];
+  hotspotImageFiles?: Express.Multer.File[];
+  hotspotVideoFiles?: Express.Multer.File[];
+  effectSoundFiles?: Express.Multer.File[];
+}
 
 @ApiTags('Virtual Tours')
 @Controller('virtual-tours')
@@ -52,14 +63,16 @@ export class VirtualTourController {
     FileFieldsInterceptor([
       { name: 'tourFile', maxCount: 1 },
       { name: 'audioFiles', maxCount: 20 },
-      { name: 'imageFiles', maxCount: 20 },
-      { name: 'videoFiles', maxCount: 5 },
+      { name: 'hotspotAudioFiles', maxCount: 20 },
+      { name: 'hotspotImageFiles', maxCount: 20 },
+      { name: 'hotspotVideoFiles', maxCount: 10 },
+      { name: 'effectSoundFiles', maxCount: 20 },
     ]),
   )
   @ApiOperation({
-    summary: 'Create a new virtual tour with optional files (Admin only)',
+    summary: 'Create a new virtual tour with optional nested elements (Admin only)',
     description:
-      'Accepts multipart/form-data with files or application/json with URLs. Files are uploaded to Cloudinary.',
+      'Create virtual tour with hotspots, audio regions, and effects. Accepts multipart/form-data with files or application/json with URLs.',
   })
   @ApiBody({
     schema: {
@@ -76,38 +89,76 @@ export class VirtualTourController {
         embedUrl: { type: 'string', example: 'https://matterport.com/tour/123' },
         status: { type: 'string', enum: ['draft', 'published', 'archived'], default: 'draft' },
         isPublished: { type: 'boolean', default: false },
-        hotspots: {
-          type: 'string',
-          description: 'JSON string of hotspots array',
-          example: '[{"type":"info","title":"Artifact","positionX":1,"positionY":2,"positionZ":3}]',
-        },
-        audioRegions: {
-          type: 'string',
-          description: 'JSON string of audioRegions array',
-        },
-        effects: {
-          type: 'string',
-          description: 'JSON string of effects array',
-        },
         tourFile: {
           type: 'string',
           format: 'binary',
           description: 'Main tour file (360 image, 3D model, or 360 video)',
         },
+        hotspots: {
+          type: 'string',
+          description: 'JSON array of hotspot configurations',
+          example: JSON.stringify([
+            {
+              positionX: 0,
+              positionY: 1.5,
+              positionZ: -5,
+              type: 'info',
+              title: 'Information Point',
+              description: 'Details about this location',
+            },
+          ]),
+        },
+        audioRegions: {
+          type: 'string',
+          description: 'JSON array of audio region configurations',
+          example: JSON.stringify([
+            {
+              regionType: 'sphere',
+              centerX: 0,
+              centerY: 0,
+              centerZ: 0,
+              radius: 5,
+              volume: 0.8,
+              loop: true,
+            },
+          ]),
+        },
+        effects: {
+          type: 'string',
+          description: 'JSON array of effect configurations',
+          example: JSON.stringify([
+            {
+              effectType: 'visual',
+              triggerType: 'on_enter',
+              effectName: 'fog',
+              intensity: 0.5,
+            },
+          ]),
+        },
         audioFiles: {
           type: 'array',
           items: { type: 'string', format: 'binary' },
-          description: 'Audio files for hotspots/audio regions',
+          description: 'Audio files for audio regions (matched by array index)',
         },
-        imageFiles: {
+        hotspotAudioFiles: {
           type: 'array',
           items: { type: 'string', format: 'binary' },
-          description: 'Image files for hotspots',
+          description: 'Audio files for hotspots with type "audio"',
         },
-        videoFiles: {
+        hotspotImageFiles: {
           type: 'array',
           items: { type: 'string', format: 'binary' },
-          description: 'Video files for hotspots',
+          description: 'Image files for hotspots with type "image"',
+        },
+        hotspotVideoFiles: {
+          type: 'array',
+          items: { type: 'string', format: 'binary' },
+          description: 'Video files for hotspots with type "video"',
+        },
+        effectSoundFiles: {
+          type: 'array',
+          items: { type: 'string', format: 'binary' },
+          description: 'Sound files for effects with effectType "sound"',
         },
       },
       required: ['title', 'location', 'tourType'],
@@ -115,133 +166,50 @@ export class VirtualTourController {
   })
   @ApiResponse({
     status: 201,
-    description: 'Virtual tour created successfully',
+    description: 'Virtual tour created successfully with nested elements',
   })
   @ApiResponse({ status: 400, description: 'Bad request - validation failed' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden - Admin access required' })
   async create(
     @Request() req,
-    @UploadedFiles()
-    files: {
-      tourFile?: Express.Multer.File[];
-      audioFiles?: Express.Multer.File[];
-      imageFiles?: Express.Multer.File[];
-      videoFiles?: Express.Multer.File[];
-    },
+    @UploadedFiles() files: UploadedTourFiles,
     @Body() body: Record<string, unknown>,
   ) {
     const userId = req.user.id as number;
 
-    // Parse JSON strings from form data
-    let hotspots = this.parseJsonField(body.hotspots, 'hotspots');
-    let audioRegions = this.parseJsonField(body.audioRegions, 'audioRegions');
-    let effects = this.parseJsonField(body.effects, 'effects');
+    // Parse nested data from form
+    const hotspots = this.parseJsonField(body.hotspots, 'hotspots');
+    const audioRegions = this.parseJsonField(body.audioRegions, 'audioRegions');
+    const effects = this.parseJsonField(body.effects, 'effects');
 
-    const tourType = typeof body.tourType === 'string' ? body.tourType : undefined;
+    const tourType = this.getStringField(body.tourType, 'tourType', true)!;
 
-    if (!tourType) {
-      throw new BadRequestException('tourType is required');
-    }
+    // Process main tour file
+    await this.processMainTourFile(files, tourType, body);
 
-    // Upload main tour file if provided
-    if (files?.tourFile?.[0]) {
-      const tourFileResult = await this.uploadService.uploadVirtualTour(
-        files.tourFile[0],
-        tourType as '360_image' | '3d_model' | '360_video',
-      );
+    // Process audio region files
+    const processedAudioRegions = await this.processAudioRegionFiles(
+      audioRegions,
+      files.audioFiles,
+    );
 
-      switch (tourType) {
-        case '360_image':
-          body.image360Url = tourFileResult.url;
-          break;
-        case '360_video':
-          body.video360Url = tourFileResult.url;
-          break;
-        case '3d_model':
-          body.model3dUrl = tourFileResult.url;
-          break;
-      }
-      body.fileName = tourFileResult.fileName;
-    }
+    // Process hotspot files
+    const processedHotspots = await this.processHotspotFiles(
+      hotspots,
+      files.hotspotAudioFiles,
+      files.hotspotImageFiles,
+      files.hotspotVideoFiles,
+    );
 
-    // Upload and map audio files
-    if (files?.audioFiles && files.audioFiles.length > 0) {
-      const audioResults = await Promise.all(
-        files.audioFiles.map((file) => this.uploadService.uploadAudio(file))
-      );
-
-      // Map audio files to audio regions
-      if (Array.isArray(audioRegions)) {
-        audioRegions = audioRegions.map((region: any, index: number) => ({
-          ...region,
-          audioUrl: audioResults[index]?.url || region.audioUrl,
-          audioFileName: audioResults[index]?.fileName || region.audioFileName,
-        }));
-      }
-
-      // Map audio files to hotspots with audio type
-      if (Array.isArray(hotspots)) {
-        let audioIndex = audioRegions?.length || 0;
-        hotspots = hotspots.map((hotspot: any) => {
-          if (hotspot.type === 'audio' && audioResults[audioIndex]) {
-            const result = audioResults[audioIndex++];
-            return {
-              ...hotspot,
-              actionAudioUrl: result.url,
-            };
-          }
-          return hotspot;
-        });
-      }
-    }
-
-    // Upload and map image files to hotspots
-    if (files?.imageFiles && files.imageFiles.length > 0) {
-      const imageUploadResult = await this.uploadService.uploadMultipleImages(files.imageFiles);
-
-      if (Array.isArray(hotspots)) {
-        let imageIndex = 0;
-        hotspots = hotspots.map((hotspot: any) => {
-          if (hotspot.type === 'image' && imageUploadResult.successful[imageIndex]) {
-            const result = imageUploadResult.successful[imageIndex++];
-            return {
-              ...hotspot,
-              actionImageUrl: result.url,
-            };
-          }
-          return hotspot;
-        });
-      }
-    }
-
-    // Upload and map video files to hotspots
-    if (files?.videoFiles && files.videoFiles.length > 0) {
-      const videoResults = await Promise.all(
-        files.videoFiles.map((file) => this.uploadService.uploadVideo(file))
-      );
-
-      if (Array.isArray(hotspots)) {
-        let videoIndex = 0;
-        hotspots = hotspots.map((hotspot: any) => {
-          if (hotspot.type === 'video' && videoResults[videoIndex]) {
-            const result = videoResults[videoIndex++];
-            return {
-              ...hotspot,
-              actionVideoUrl: result.url,
-            };
-          }
-          return hotspot;
-        });
-      }
-    }
+    // Process effect files
+    const processedEffects = await this.processEffectFiles(
+      effects,
+      files.effectSoundFiles,
+    );
 
     // Build the DTO
     const createVirtualTourDto: CreateVirtualTourDto = {
-      // title: this.getStringField(body.title, 'title', true),
-      // description: this.getStringField(body.description, 'description'),
-      // location: this.getStringField(body.location, 'location', true),
-
       title: this.getStringField(body.title, 'title', true)!,
       description: this.getStringField(body.description, 'description'),
       location: this.getStringField(body.location, 'location', true)!,
@@ -251,14 +219,17 @@ export class VirtualTourController {
       video360Url: this.getStringField(body.video360Url, 'video360Url'),
       model3dUrl: this.getStringField(body.model3dUrl, 'model3dUrl'),
       fileName: this.getStringField(body.fileName, 'fileName'),
-      status: this.getStringField(body.status, 'status') || 'draft',
+      status: this.getStringField(body.status, 'status') as TourStatus || TourStatus.PUBLISHED,
       isPublished: this.getBooleanField(body.isPublished, 'isPublished'),
-      hotspots: hotspots,
-      audioRegions: audioRegions,
-      effects: effects,
     };
 
-    return this.virtualTourService.create(userId, createVirtualTourDto);
+    return this.virtualTourService.createWithNested(
+      userId,
+      createVirtualTourDto,
+      processedHotspots,
+      processedAudioRegions,
+      processedEffects,
+    );
   }
 
   @Get()
@@ -352,7 +323,7 @@ export class VirtualTourController {
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({
     summary: 'Update a virtual tour (Admin only)',
-    description: 'Update virtual tour details, hotspots, audio regions, and effects',
+    description: 'Update virtual tour details',
   })
   @ApiParam({ name: 'id', type: Number })
   @ApiResponse({
@@ -473,14 +444,172 @@ export class VirtualTourController {
     return this.virtualTourService.remove(id, userId);
   }
 
-  // Helper methods
+  // ==================== FILE PROCESSING METHODS ====================
+
+  /**
+   * Process and upload main tour file based on tour type
+   */
+  private async processMainTourFile(
+    files: UploadedTourFiles,
+    tourType: string,
+    body: Record<string, unknown>,
+  ): Promise<void> {
+    if (!files?.tourFile?.[0]) return;
+
+    const tourFile = files.tourFile[0];
+    const tourFileResult = await this.uploadService.uploadVirtualTour(
+      tourFile,
+      tourType as '360_image' | '3d_model' | '360_video',
+    );
+
+    // Map uploaded URL to appropriate field
+    switch (tourType) {
+      case '360_image':
+        body.image360Url = tourFileResult.url;
+        break;
+      case '360_video':
+        body.video360Url = tourFileResult.url;
+        break;
+      case '3d_model':
+        body.model3dUrl = tourFileResult.url;
+        break;
+    }
+    body.fileName = tourFileResult.fileName;
+  }
+
+  /**
+   * Process and upload audio region files
+   */
+  private async processAudioRegionFiles(
+    audioRegions: any[] | undefined,
+    audioFiles: Express.Multer.File[] | undefined,
+  ): Promise<any[] | undefined> {
+    if (!audioRegions || !Array.isArray(audioRegions)) {
+      return undefined;
+    }
+
+    if (!audioFiles || audioFiles.length === 0) {
+      return audioRegions;
+    }
+
+    // Upload all audio files
+    const audioResults = await Promise.all(
+      audioFiles.map((file) => this.uploadService.uploadAudio(file)),
+    );
+
+    // Map uploaded files to audio regions by index
+    return audioRegions.map((region, index) => {
+      if (audioResults[index]) {
+        return {
+          ...region,
+          audioUrl: audioResults[index].url,
+          audioFileName: audioResults[index].fileName,
+        };
+      }
+      return region;
+    });
+  }
+
+  /**
+   * Process and upload hotspot-related files (audio, image, video)
+   */
+  private async processHotspotFiles(
+    hotspots: any[] | undefined,
+    audioFiles: Express.Multer.File[] | undefined,
+    imageFiles: Express.Multer.File[] | undefined,
+    videoFiles: Express.Multer.File[] | undefined,
+  ): Promise<any[] | undefined> {
+    if (!hotspots || !Array.isArray(hotspots)) {
+      return undefined;
+    }
+
+    // Upload all files in parallel
+    const [audioResults, imageResults, videoResults] = await Promise.all([
+      audioFiles ? Promise.all(audioFiles.map((f) => this.uploadService.uploadAudio(f))) : [],
+      imageFiles ? this.uploadService.uploadMultipleImages(imageFiles).then((r) => r.successful) : [],
+      videoFiles ? Promise.all(videoFiles.map((f) => this.uploadService.uploadVideo(f))) : [],
+    ]);
+
+    // Track file indices for each type
+    let audioIndex = 0;
+    let imageIndex = 0;
+    let videoIndex = 0;
+
+    // Map files to corresponding hotspots based on type
+    return hotspots.map((hotspot) => {
+      const processed = { ...hotspot };
+
+      switch (hotspot.type) {
+        case 'audio':
+          if (audioResults[audioIndex]) {
+            processed.actionAudioUrl = audioResults[audioIndex].url;
+            audioIndex++;
+          }
+          break;
+        case 'image':
+          if (imageResults[imageIndex]) {
+            processed.actionImageUrl = imageResults[imageIndex].url;
+            imageIndex++;
+          }
+          break;
+        case 'video':
+          if (videoResults[videoIndex]) {
+            processed.actionVideoUrl = videoResults[videoIndex].url;
+            videoIndex++;
+          }
+          break;
+      }
+
+      return processed;
+    });
+  }
+
+  /**
+   * Process and upload effect sound files
+   */
+  private async processEffectFiles(
+    effects: any[] | undefined,
+    soundFiles: Express.Multer.File[] | undefined,
+  ): Promise<any[] | undefined> {
+    if (!effects || !Array.isArray(effects)) {
+      return undefined;
+    }
+
+    if (!soundFiles || soundFiles.length === 0) {
+      return effects;
+    }
+
+    // Upload all sound files
+    const soundResults = await Promise.all(
+      soundFiles.map((file) => this.uploadService.uploadAudio(file)),
+    );
+
+    // Map uploaded files to sound effects
+    let soundIndex = 0;
+    return effects.map((effect) => {
+      if (effect.effectType === 'sound' && soundResults[soundIndex]) {
+        const result = soundResults[soundIndex++];
+        return {
+          ...effect,
+          soundUrl: result.url,
+        };
+      }
+      return effect;
+    });
+  }
+
+  // ==================== HELPER METHODS ====================
+
+  /**
+   * Parse JSON field from form data or return array if already parsed
+   */
   private parseJsonField(field: unknown, fieldName: string): any[] | undefined {
     if (field === undefined || field === null || field === '') {
       return undefined;
     }
 
     if (typeof field === 'string') {
-      // Skip parsing if it's a placeholder string like "string"
+      // Skip placeholder strings
       if (field.trim().toLowerCase() === 'string' || field.trim() === '') {
         return undefined;
       }
@@ -490,7 +619,7 @@ export class VirtualTourController {
         return Array.isArray(parsed) ? parsed : undefined;
       } catch {
         throw new BadRequestException(
-          `Invalid JSON format for ${fieldName}. Expected a JSON array or omit the field.`
+          `Invalid JSON format for ${fieldName}. Expected a JSON array or omit the field.`,
         );
       }
     }
@@ -502,7 +631,14 @@ export class VirtualTourController {
     return undefined;
   }
 
-  private getStringField(field: unknown, fieldName: string, required: boolean = false): string | undefined {
+  /**
+   * Extract and validate string field from request body
+   */
+  private getStringField(
+    field: unknown,
+    fieldName: string,
+    required: boolean = false,
+  ): string | undefined {
     if (field === undefined || field === null) {
       if (required) {
         throw new BadRequestException(`${fieldName} is required`);
@@ -517,6 +653,9 @@ export class VirtualTourController {
     throw new BadRequestException(`${fieldName} must be a string`);
   }
 
+  /**
+   * Extract and validate boolean field from request body
+   */
   private getBooleanField(field: unknown, fieldName: string): boolean {
     if (field === undefined || field === null) {
       return false;

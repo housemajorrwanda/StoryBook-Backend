@@ -8,10 +8,16 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateVirtualTourDto } from './dto/create-virtual-tour.dto';
+import { CreateVirtualTourDto, TourType, TourStatus } from './dto/create-virtual-tour.dto';
 import { UpdateVirtualTourDto } from './dto/update-virtual-tour.dto';
+import { CreateHotspotDto } from './dto/create-hotspot.dto';
+import { UpdateHotspotDto } from './dto/update-hotspot.dto';
+import { CreateAudioRegionDto } from './dto/create-audio-region.dto';
+import { UpdateAudioRegionDto } from './dto/update-audio-region.dto';
+import { CreateEffectDto } from './dto/create-effect.dto';
+import { UpdateEffectDto } from './dto/update-effect.dto';
 
-interface VirtualTourFilters {
+export interface VirtualTourFilters {
   skip?: number;
   limit?: number;
   search?: string;
@@ -21,9 +27,19 @@ interface VirtualTourFilters {
   isPublished?: boolean;
 }
 
+export interface PaginatedResult<T> {
+  data: T[];
+  meta: {
+    total: number;
+    skip: number;
+    limit: number;
+    hasMore: boolean;
+  };
+}
+
 @Injectable()
 export class VirtualTourService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   private handlePrismaError(error: any, entity: string = 'Virtual tour'): never {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
@@ -41,224 +57,74 @@ export class VirtualTourService {
     throw new InternalServerErrorException('An unexpected error occurred');
   }
 
-  private validateTourContent(dto: Partial<CreateVirtualTourDto> | Partial<UpdateVirtualTourDto>): void {
-    // Validate that required URLs are provided based on tour type
+  private validateTourUrls(dto: Partial<CreateVirtualTourDto> | Partial<UpdateVirtualTourDto>): void {
     if (dto.tourType) {
       switch (dto.tourType) {
-        case 'embed':
+        case TourType.EMBED:
           if (!dto.embedUrl) {
             throw new BadRequestException('embedUrl is required for embed tours');
           }
           break;
-        case '360_image':
+        case TourType.IMAGE_360:
           if (!dto.image360Url) {
             throw new BadRequestException('image360Url is required for 360 image tours');
           }
           break;
-        case '360_video':
+        case TourType.VIDEO_360:
           if (!dto.video360Url) {
             throw new BadRequestException('video360Url is required for 360 video tours');
           }
           break;
-        case '3d_model':
+        case TourType.MODEL_3D:
           if (!dto.model3dUrl) {
             throw new BadRequestException('model3dUrl is required for 3D model tours');
           }
           break;
       }
     }
+  }
 
-    // Validate hotspots if provided
-    if (dto.hotspots && Array.isArray(dto.hotspots)) {
-      dto.hotspots.forEach((hotspot, index) => {
-        this.validateHotspot(hotspot, index);
-      });
+  private async verifyTourOwnership(tourId: number, userId: number): Promise<void> {
+    const tour = await this.prisma.virtualTour.findUnique({
+      where: { id: tourId },
+      select: { userId: true },
+    });
+
+    if (!tour) {
+      throw new NotFoundException('Virtual tour not found');
     }
 
-    // Validate audio regions if provided
-    if (dto.audioRegions && Array.isArray(dto.audioRegions)) {
-      dto.audioRegions.forEach((region, index) => {
-        this.validateAudioRegion(region, index);
-      });
-    }
-
-    // Validate effects if provided
-    if (dto.effects && Array.isArray(dto.effects)) {
-      dto.effects.forEach((effect, index) => {
-        this.validateEffect(effect, index);
-      });
+    if (tour.userId !== userId) {
+      throw new ForbiddenException('You can only modify your own virtual tours');
     }
   }
 
-  private validateHotspot(hotspot: any, index: number): void {
-    if (!hotspot.type) {
-      throw new BadRequestException(`Hotspot ${index}: type is required`);
-    }
+  private async verifyTourExists(tourId: number): Promise<void> {
+    const tour = await this.prisma.virtualTour.findUnique({
+      where: { id: tourId },
+      select: { id: true },
+    });
 
-    // Validate required fields based on type
-    switch (hotspot.type) {
-      case 'link':
-        if (!hotspot.actionUrl) {
-          throw new BadRequestException(`Hotspot ${index}: actionUrl is required for link type`);
-        }
-        break;
-      case 'audio':
-        if (!hotspot.actionAudioUrl) {
-          throw new BadRequestException(`Hotspot ${index}: actionAudioUrl is required for audio type`);
-        }
-        break;
-      case 'video':
-        if (!hotspot.actionVideoUrl) {
-          throw new BadRequestException(`Hotspot ${index}: actionVideoUrl is required for video type`);
-        }
-        break;
-      case 'image':
-        if (!hotspot.actionImageUrl) {
-          throw new BadRequestException(`Hotspot ${index}: actionImageUrl is required for image type`);
-        }
-        break;
-      case 'effect':
-        if (!hotspot.actionEffect) {
-          throw new BadRequestException(`Hotspot ${index}: actionEffect is required for effect type`);
-        }
-        break;
-    }
-
-    // Validate position values if provided
-    if (hotspot.pitch !== undefined && (hotspot.pitch < -90 || hotspot.pitch > 90)) {
-      throw new BadRequestException(`Hotspot ${index}: pitch must be between -90 and 90 degrees`);
-    }
-    if (hotspot.yaw !== undefined && (hotspot.yaw < 0 || hotspot.yaw > 360)) {
-      throw new BadRequestException(`Hotspot ${index}: yaw must be between 0 and 360 degrees`);
+    if (!tour) {
+      throw new NotFoundException('Virtual tour not found');
     }
   }
 
-  private validateAudioRegion(region: any, index: number): void {
-    if (!region.regionType) {
-      throw new BadRequestException(`Audio region ${index}: regionType is required`);
-    }
+  // ==================== VIRTUAL TOUR CRUD OPERATIONS ====================
 
-    if (region.regionType === 'sphere' && !region.radius) {
-      throw new BadRequestException(`Audio region ${index}: radius is required for sphere regions`);
-    }
-
-    if (region.regionType === 'box') {
-      if (!region.width || !region.height || !region.depth) {
-        throw new BadRequestException(
-          `Audio region ${index}: width, height, and depth are required for box regions`
-        );
-      }
-    }
-
-    if (!region.audioUrl) {
-      throw new BadRequestException(`Audio region ${index}: audioUrl is required`);
-    }
-
-    if (!region.audioFileName) {
-      throw new BadRequestException(`Audio region ${index}: audioFileName is required`);
-    }
-
-    // Validate numeric constraints
-    if (region.volume !== undefined && (region.volume < 0 || region.volume > 1)) {
-      throw new BadRequestException(`Audio region ${index}: volume must be between 0 and 1`);
-    }
-  }
-
-  private validateEffect(effect: any, index: number): void {
-    if (!effect.effectType) {
-      throw new BadRequestException(`Effect ${index}: effectType is required`);
-    }
-
-    if (!effect.triggerType) {
-      throw new BadRequestException(`Effect ${index}: triggerType is required`);
-    }
-
-    if (!effect.effectName) {
-      throw new BadRequestException(`Effect ${index}: effectName is required`);
-    }
-
-    // Validate type-specific requirements
-    if (effect.effectType === 'sound' && !effect.soundUrl) {
-      throw new BadRequestException(`Effect ${index}: soundUrl is required for sound effects`);
-    }
-
-    if (effect.effectType === 'particle' && !effect.particleCount) {
-      throw new BadRequestException(`Effect ${index}: particleCount is required for particle effects`);
-    }
-
-    if (effect.effectType === 'animation' && !effect.animationType) {
-      throw new BadRequestException(`Effect ${index}: animationType is required for animation effects`);
-    }
-
-    // Validate numeric constraints
-    if (effect.intensity !== undefined && (effect.intensity < 0 || effect.intensity > 1)) {
-      throw new BadRequestException(`Effect ${index}: intensity must be between 0 and 1`);
-    }
-
-    if (effect.opacity !== undefined && (effect.opacity < 0 || effect.opacity > 1)) {
-      throw new BadRequestException(`Effect ${index}: opacity must be between 0 and 1`);
-    }
-  }
-
+  /**
+   * Create virtual tour (basic - without nested elements)
+   */
   async create(userId: number, createVirtualTourDto: CreateVirtualTourDto) {
     try {
-      // Validate tour content
-      this.validateTourContent(createVirtualTourDto);
-
-      const { hotspots, audioRegions, effects, ...tourData } = createVirtualTourDto;
-
-      // Prepare nested data
-      const data: any = {
-        ...tourData,
-        userId,
-      };
-
-      if (hotspots && hotspots.length > 0) {
-        data.hotspots = {
-          create: hotspots.map((hotspot, index) => ({
-            ...hotspot,
-            order: hotspot.order ?? index,
-          })),
-        };
-      }
-
-      if (audioRegions && audioRegions.length > 0) {
-        data.audioRegions = {
-          create: audioRegions.map((region, index) => ({
-            ...region,
-            order: region.order ?? index,
-          })),
-        };
-      }
-
-      if (effects && effects.length > 0) {
-        data.effects = {
-          create: effects.map((effect, index) => ({
-            ...effect,
-            order: effect.order ?? index,
-          })),
-        };
-      }
+      this.validateTourUrls(createVirtualTourDto);
 
       const virtualTour = await this.prisma.virtualTour.create({
-        data,
-        include: {
-          hotspots: {
-            orderBy: { order: 'asc' },
-          },
-          audioRegions: {
-            orderBy: { order: 'asc' },
-          },
-          effects: {
-            orderBy: { order: 'asc' },
-          },
-          user: {
-            select: {
-              id: true,
-              fullName: true,
-              email: true,
-            },
-          },
+        data: {
+          ...createVirtualTourDto,
+          userId,
+          status: createVirtualTourDto.status || TourStatus.DRAFT,
+          isPublished: createVirtualTourDto.isPublished || false,
         },
       });
 
@@ -271,7 +137,156 @@ export class VirtualTourService {
     }
   }
 
-  async findAll(filters: VirtualTourFilters = {}) {
+  /**
+   * Create virtual tour with nested hotspots, audio regions, and effects
+   */
+  async createWithNested(
+    userId: number,
+    createVirtualTourDto: CreateVirtualTourDto,
+    hotspots?: Partial<CreateHotspotDto>[],
+    audioRegions?: Partial<CreateAudioRegionDto>[],
+    effects?: Partial<CreateEffectDto>[],
+  ) {
+    try {
+      this.validateTourUrls(createVirtualTourDto);
+
+      // Use transaction to ensure atomicity
+      const result = await this.prisma.$transaction(async (tx) => {
+        // Create the virtual tour
+        const virtualTour = await tx.virtualTour.create({
+          data: {
+            ...createVirtualTourDto,
+            userId,
+            status: createVirtualTourDto.status || TourStatus.DRAFT,
+            isPublished: createVirtualTourDto.isPublished || false,
+          },
+        });
+
+        // Create hotspots if provided
+        if (hotspots && hotspots.length > 0) {
+          await tx.virtualTourHotspot.createMany({
+            data: hotspots.map((hotspot, index) => ({
+              virtualTourId: virtualTour.id,
+              type: hotspot.type!,
+              positionX: hotspot.positionX,
+              positionY: hotspot.positionY,
+              positionZ: hotspot.positionZ,
+              pitch: hotspot.pitch,
+              yaw: hotspot.yaw,
+              title: hotspot.title,
+              description: hotspot.description,
+              icon: hotspot.icon,
+              actionUrl: hotspot.actionUrl,
+              actionAudioUrl: hotspot.actionAudioUrl,
+              actionVideoUrl: hotspot.actionVideoUrl,
+              actionImageUrl: hotspot.actionImageUrl,
+              actionEffect: hotspot.actionEffect,
+              triggerDistance: hotspot.triggerDistance,
+              autoTrigger: hotspot.autoTrigger,
+              showOnHover: hotspot.showOnHover,
+              color: hotspot.color,
+              size: hotspot.size,
+              order: hotspot.order ?? index,
+            })),
+          });
+        }
+
+        // Create audio regions if provided
+        if (audioRegions && audioRegions.length > 0) {
+          await tx.virtualTourAudioRegion.createMany({
+            data: audioRegions.map((region, index) => ({
+              virtualTourId: virtualTour.id,
+              regionType: region.regionType ?? 'sphere',
+              centerX: region.centerX!,
+              centerY: region.centerY!,
+              centerZ: region.centerZ!,
+              radius: region.radius,
+              width: region.width,
+              height: region.height,
+              depth: region.depth,
+              audioUrl: region.audioUrl!,
+              audioFileName: region.audioFileName!,
+              volume: region.volume ?? 1.0,
+              loop: region.loop ?? true,
+              fadeInDuration: region.fadeInDuration,
+              fadeOutDuration: region.fadeOutDuration,
+              spatialAudio: region.spatialAudio ?? true,
+              minDistance: region.minDistance,
+              maxDistance: region.maxDistance,
+              autoPlay: region.autoPlay ?? true,
+              playOnce: region.playOnce ?? false,
+              title: region.title,
+              description: region.description,
+              order: region.order ?? index,
+            })),
+          });
+        }
+
+        // Create effects if provided
+        if (effects && effects.length > 0) {
+          await tx.virtualTourEffect.createMany({
+            data: effects.map((effect, index) => ({
+              virtualTourId: virtualTour.id,
+              effectType: effect.effectType!,
+              positionX: effect.positionX,
+              positionY: effect.positionY,
+              positionZ: effect.positionZ,
+              pitch: effect.pitch,
+              yaw: effect.yaw,
+              triggerType: effect.triggerType!,
+              triggerDistance: effect.triggerDistance,
+              triggerDelay: effect.triggerDelay ?? 0.0,
+              effectName: effect.effectName!,
+              intensity: effect.intensity ?? 1.0,
+              duration: effect.duration,
+              color: effect.color,
+              soundUrl: effect.soundUrl,
+              particleCount: effect.particleCount,
+              opacity: effect.opacity ?? 1.0,
+              size: effect.size ?? 1.0,
+              animationType: effect.animationType,
+              animationSpeed: effect.animationSpeed ?? 1.0,
+              title: effect.title,
+              description: effect.description,
+              order: effect.order ?? index,
+            })),
+          });
+        }
+
+        // Fetch complete tour with all nested data
+        return await tx.virtualTour.findUnique({
+          where: { id: virtualTour.id },
+          include: {
+            hotspots: {
+              orderBy: { order: 'asc' },
+            },
+            audioRegions: {
+              orderBy: { order: 'asc' },
+            },
+            effects: {
+              orderBy: { order: 'asc' },
+            },
+            user: {
+              select: {
+                id: true,
+                fullName: true,
+                email: true,
+              },
+            },
+          },
+        });
+      });
+
+      return result;
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      this.handlePrismaError(error);
+    }
+  }
+
+  async findAll(filters: VirtualTourFilters = {}): Promise<PaginatedResult<any>> {
     try {
       const {
         skip = 0,
@@ -283,31 +298,13 @@ export class VirtualTourService {
         isPublished,
       } = filters;
 
-      const where: Prisma.VirtualTourWhereInput = {};
-
-      if (search) {
-        where.OR = [
-          { title: { contains: search, mode: 'insensitive' } },
-          { description: { contains: search, mode: 'insensitive' } },
-          { location: { contains: search, mode: 'insensitive' } },
-        ];
-      }
-
-      if (tourType) {
-        where.tourType = tourType;
-      }
-
-      if (status) {
-        where.status = status;
-      }
-
-      if (userId) {
-        where.userId = userId;
-      }
-
-      if (isPublished !== undefined) {
-        where.isPublished = isPublished;
-      }
+      const where: Prisma.VirtualTourWhereInput = this.buildWhereClause({
+        search,
+        tourType,
+        status,
+        userId,
+        isPublished,
+      });
 
       const [tours, total] = await Promise.all([
         this.prisma.virtualTour.findMany({
@@ -315,22 +312,7 @@ export class VirtualTourService {
           skip,
           take: limit,
           orderBy: { createdAt: 'desc' },
-          include: {
-            user: {
-              select: {
-                id: true,
-                fullName: true,
-                email: true,
-              },
-            },
-            _count: {
-              select: {
-                hotspots: true,
-                audioRegions: true,
-                effects: true,
-              },
-            },
-          },
+          include: this.getTourListIncludeFields(),
         }),
         this.prisma.virtualTour.count({ where }),
       ]);
@@ -386,66 +368,22 @@ export class VirtualTourService {
     }
   }
 
-  async update(id: number, userId: number, updateVirtualTourDto: Partial<UpdateVirtualTourDto>) {
+  async update(id: number, userId: number, updateVirtualTourDto: UpdateVirtualTourDto) {
     try {
-      // Check if virtual tour exists and user has permission
-      const existingTour = await this.prisma.virtualTour.findUnique({
-        where: { id },
-      });
+      await this.verifyTourOwnership(id, userId);
 
-      if (!existingTour) {
-        throw new NotFoundException('Virtual tour not found');
-      }
-
-      if (existingTour.userId !== userId) {
-        throw new ForbiddenException('You can only update your own virtual tours');
-      }
-
-      // Validate tour content if provided
       if (Object.keys(updateVirtualTourDto).length > 0) {
-        this.validateTourContent(updateVirtualTourDto);
+        this.validateTourUrls(updateVirtualTourDto);
       }
 
-      const { hotspots, audioRegions, effects, incrementImpressions, ...tourData } = updateVirtualTourDto;
+      const { incrementImpressions, ...tourData } = updateVirtualTourDto;
 
-      // Build update data
-      const updateData: any = {
+      const updateData: Prisma.VirtualTourUpdateInput = {
         ...tourData,
       };
 
       if (incrementImpressions) {
         updateData.impressions = { increment: 1 };
-      }
-
-      // Handle nested updates
-      if (hotspots !== undefined) {
-        updateData.hotspots = {
-          deleteMany: {},
-          create: hotspots.map((hotspot, index) => ({
-            ...hotspot,
-            order: hotspot.order ?? index,
-          })),
-        };
-      }
-
-      if (audioRegions !== undefined) {
-        updateData.audioRegions = {
-          deleteMany: {},
-          create: audioRegions.map((region, index) => ({
-            ...region,
-            order: region.order ?? index,
-          })),
-        };
-      }
-
-      if (effects !== undefined) {
-        updateData.effects = {
-          deleteMany: {},
-          create: effects.map((effect, index) => ({
-            ...effect,
-            order: effect.order ?? index,
-          })),
-        };
       }
 
       const virtualTour = await this.prisma.virtualTour.update({
@@ -482,18 +420,7 @@ export class VirtualTourService {
 
   async remove(id: number, userId: number) {
     try {
-      // Check if virtual tour exists and user has permission
-      const existingTour = await this.prisma.virtualTour.findUnique({
-        where: { id },
-      });
-
-      if (!existingTour) {
-        throw new NotFoundException('Virtual tour not found');
-      }
-
-      if (existingTour.userId !== userId) {
-        throw new ForbiddenException('You can only delete your own virtual tours');
-      }
+      await this.verifyTourOwnership(id, userId);
 
       await this.prisma.virtualTour.delete({
         where: { id },
@@ -508,6 +435,8 @@ export class VirtualTourService {
     }
   }
 
+  // ==================== TOUR MANAGEMENT OPERATIONS ====================
+
   async incrementImpressions(id: number) {
     try {
       const virtualTour = await this.prisma.virtualTour.update({
@@ -518,6 +447,7 @@ export class VirtualTourService {
         select: {
           id: true,
           impressions: true,
+          title: true,
         },
       });
 
@@ -539,22 +469,537 @@ export class VirtualTourService {
 
   async publish(id: number, userId: number) {
     return this.update(id, userId, {
-      status: 'published',
+      status: TourStatus.PUBLISHED,
       isPublished: true,
     });
   }
 
   async unpublish(id: number, userId: number) {
     return this.update(id, userId, {
-      status: 'draft',
+      status: TourStatus.DRAFT,
       isPublished: false,
     });
   }
 
   async archive(id: number, userId: number) {
     return this.update(id, userId, {
-      status: 'archived',
+      status: TourStatus.ARCHIVED,
       isPublished: false,
     });
+  }
+
+  // ==================== HOTSPOT CRUD OPERATIONS ====================
+
+  async createHotspot(virtualTourId: number, userId: number, createHotspotDto: CreateHotspotDto) {
+    try {
+      await this.verifyTourOwnership(virtualTourId, userId);
+
+      const hotspot = await this.prisma.virtualTourHotspot.create({
+        data: {
+          ...createHotspotDto,
+          virtualTourId,
+          order: createHotspotDto.order ?? 0,
+        },
+        include: this.getHotspotIncludeFields(),
+      });
+
+      return hotspot;
+    } catch (error) {
+      if (error instanceof NotFoundException || error instanceof ForbiddenException) {
+        throw error;
+      }
+      this.handlePrismaError(error, 'Hotspot');
+    }
+  }
+
+  async getTourHotspots(virtualTourId: number) {
+    try {
+      await this.verifyTourExists(virtualTourId);
+
+      const hotspots = await this.prisma.virtualTourHotspot.findMany({
+        where: { virtualTourId },
+        orderBy: { order: 'asc' },
+        include: this.getHotspotIncludeFields(),
+      });
+
+      return hotspots;
+    } catch (error) {
+      this.handlePrismaError(error);
+    }
+  }
+
+  async getHotspot(id: number) {
+    try {
+      const hotspot = await this.prisma.virtualTourHotspot.findUnique({
+        where: { id },
+        include: this.getHotspotIncludeFields(),
+      });
+
+      if (!hotspot) {
+        throw new NotFoundException('Hotspot not found');
+      }
+
+      return hotspot;
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      this.handlePrismaError(error);
+    }
+  }
+
+  async updateHotspot(id: number, userId: number, updateHotspotDto: UpdateHotspotDto) {
+    try {
+      const hotspot = await this.prisma.virtualTourHotspot.findUnique({
+        where: { id },
+        include: { virtualTour: { select: { userId: true } } },
+      });
+
+      if (!hotspot) {
+        throw new NotFoundException('Hotspot not found');
+      }
+
+      if (hotspot.virtualTour.userId !== userId) {
+        throw new ForbiddenException('You can only update hotspots in your own virtual tours');
+      }
+
+      const updatedHotspot = await this.prisma.virtualTourHotspot.update({
+        where: { id },
+        data: updateHotspotDto,
+        include: this.getHotspotIncludeFields(),
+      });
+
+      return updatedHotspot;
+    } catch (error) {
+      if (error instanceof NotFoundException || error instanceof ForbiddenException) {
+        throw error;
+      }
+      this.handlePrismaError(error, 'Hotspot');
+    }
+  }
+
+  async deleteHotspot(id: number, userId: number) {
+    try {
+      const hotspot = await this.prisma.virtualTourHotspot.findUnique({
+        where: { id },
+        include: { virtualTour: { select: { userId: true } } },
+      });
+
+      if (!hotspot) {
+        throw new NotFoundException('Hotspot not found');
+      }
+
+      if (hotspot.virtualTour.userId !== userId) {
+        throw new ForbiddenException('You can only delete hotspots from your own virtual tours');
+      }
+
+      await this.prisma.virtualTourHotspot.delete({
+        where: { id },
+      });
+
+      return { message: 'Hotspot deleted successfully' };
+    } catch (error) {
+      if (error instanceof NotFoundException || error instanceof ForbiddenException) {
+        throw error;
+      }
+      this.handlePrismaError(error, 'Hotspot');
+    }
+  }
+
+  // ==================== AUDIO REGION CRUD OPERATIONS ====================
+
+  async createAudioRegion(virtualTourId: number, userId: number, createAudioRegionDto: CreateAudioRegionDto) {
+    try {
+      await this.verifyTourOwnership(virtualTourId, userId);
+
+      const audioRegion = await this.prisma.virtualTourAudioRegion.create({
+        data: {
+          ...createAudioRegionDto,
+          virtualTourId,
+          order: createAudioRegionDto.order ?? 0,
+        },
+        include: this.getAudioRegionIncludeFields(),
+      });
+
+      return audioRegion;
+    } catch (error) {
+      if (error instanceof NotFoundException || error instanceof ForbiddenException) {
+        throw error;
+      }
+      this.handlePrismaError(error, 'Audio region');
+    }
+  }
+
+  async getTourAudioRegions(virtualTourId: number) {
+    try {
+      await this.verifyTourExists(virtualTourId);
+
+      const audioRegions = await this.prisma.virtualTourAudioRegion.findMany({
+        where: { virtualTourId },
+        orderBy: { order: 'asc' },
+        include: this.getAudioRegionIncludeFields(),
+      });
+
+      return audioRegions;
+    } catch (error) {
+      this.handlePrismaError(error);
+    }
+  }
+
+  async getAudioRegion(id: number) {
+    try {
+      const audioRegion = await this.prisma.virtualTourAudioRegion.findUnique({
+        where: { id },
+        include: this.getAudioRegionIncludeFields(),
+      });
+
+      if (!audioRegion) {
+        throw new NotFoundException('Audio region not found');
+      }
+
+      return audioRegion;
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      this.handlePrismaError(error);
+    }
+  }
+
+  async updateAudioRegion(id: number, userId: number, updateAudioRegionDto: UpdateAudioRegionDto) {
+    try {
+      const audioRegion = await this.prisma.virtualTourAudioRegion.findUnique({
+        where: { id },
+        include: { virtualTour: { select: { userId: true } } },
+      });
+
+      if (!audioRegion) {
+        throw new NotFoundException('Audio region not found');
+      }
+
+      if (audioRegion.virtualTour.userId !== userId) {
+        throw new ForbiddenException('You can only update audio regions in your own virtual tours');
+      }
+
+      const updatedAudioRegion = await this.prisma.virtualTourAudioRegion.update({
+        where: { id },
+        data: updateAudioRegionDto,
+        include: this.getAudioRegionIncludeFields(),
+      });
+
+      return updatedAudioRegion;
+    } catch (error) {
+      if (error instanceof NotFoundException || error instanceof ForbiddenException) {
+        throw error;
+      }
+      this.handlePrismaError(error, 'Audio region');
+    }
+  }
+
+  async deleteAudioRegion(id: number, userId: number) {
+    try {
+      const audioRegion = await this.prisma.virtualTourAudioRegion.findUnique({
+        where: { id },
+        include: { virtualTour: { select: { userId: true } } },
+      });
+
+      if (!audioRegion) {
+        throw new NotFoundException('Audio region not found');
+      }
+
+      if (audioRegion.virtualTour.userId !== userId) {
+        throw new ForbiddenException('You can only delete audio regions from your own virtual tours');
+      }
+
+      await this.prisma.virtualTourAudioRegion.delete({
+        where: { id },
+      });
+
+      return { message: 'Audio region deleted successfully' };
+    } catch (error) {
+      if (error instanceof NotFoundException || error instanceof ForbiddenException) {
+        throw error;
+      }
+      this.handlePrismaError(error, 'Audio region');
+    }
+  }
+
+  // ==================== EFFECT CRUD OPERATIONS ====================
+
+  async createEffect(virtualTourId: number, userId: number, createEffectDto: CreateEffectDto) {
+    try {
+      await this.verifyTourOwnership(virtualTourId, userId);
+
+      const effect = await this.prisma.virtualTourEffect.create({
+        data: {
+          ...createEffectDto,
+          virtualTourId,
+          order: createEffectDto.order ?? 0,
+        },
+        include: this.getEffectIncludeFields(),
+      });
+
+      return effect;
+    } catch (error) {
+      if (error instanceof NotFoundException || error instanceof ForbiddenException) {
+        throw error;
+      }
+      this.handlePrismaError(error, 'Effect');
+    }
+  }
+
+  async getTourEffects(virtualTourId: number) {
+    try {
+      await this.verifyTourExists(virtualTourId);
+
+      const effects = await this.prisma.virtualTourEffect.findMany({
+        where: { virtualTourId },
+        orderBy: { order: 'asc' },
+        include: this.getEffectIncludeFields(),
+      });
+
+      return effects;
+    } catch (error) {
+      this.handlePrismaError(error);
+    }
+  }
+
+  async getEffect(id: number) {
+    try {
+      const effect = await this.prisma.virtualTourEffect.findUnique({
+        where: { id },
+        include: this.getEffectIncludeFields(),
+      });
+
+      if (!effect) {
+        throw new NotFoundException('Effect not found');
+      }
+
+      return effect;
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      this.handlePrismaError(error);
+    }
+  }
+
+  async updateEffect(id: number, userId: number, updateEffectDto: UpdateEffectDto) {
+    try {
+      const effect = await this.prisma.virtualTourEffect.findUnique({
+        where: { id },
+        include: { virtualTour: { select: { userId: true } } },
+      });
+
+      if (!effect) {
+        throw new NotFoundException('Effect not found');
+      }
+
+      if (effect.virtualTour.userId !== userId) {
+        throw new ForbiddenException('You can only update effects in your own virtual tours');
+      }
+
+      const updatedEffect = await this.prisma.virtualTourEffect.update({
+        where: { id },
+        data: updateEffectDto,
+        include: this.getEffectIncludeFields(),
+      });
+
+      return updatedEffect;
+    } catch (error) {
+      if (error instanceof NotFoundException || error instanceof ForbiddenException) {
+        throw error;
+      }
+      this.handlePrismaError(error, 'Effect');
+    }
+  }
+
+  async deleteEffect(id: number, userId: number) {
+    try {
+      const effect = await this.prisma.virtualTourEffect.findUnique({
+        where: { id },
+        include: { virtualTour: { select: { userId: true } } },
+      });
+
+      if (!effect) {
+        throw new NotFoundException('Effect not found');
+      }
+
+      if (effect.virtualTour.userId !== userId) {
+        throw new ForbiddenException('You can only delete effects from your own virtual tours');
+      }
+
+      await this.prisma.virtualTourEffect.delete({
+        where: { id },
+      });
+
+      return { message: 'Effect deleted successfully' };
+    } catch (error) {
+      if (error instanceof NotFoundException || error instanceof ForbiddenException) {
+        throw error;
+      }
+      this.handlePrismaError(error, 'Effect');
+    }
+  }
+
+  // ==================== BULK REORDERING OPERATIONS ====================
+
+  async reorderHotspots(virtualTourId: number, userId: number, hotspotIds: number[]) {
+    try {
+      await this.verifyTourOwnership(virtualTourId, userId);
+
+      const updates = hotspotIds.map((hotspotId, index) =>
+        this.prisma.virtualTourHotspot.update({
+          where: { id: hotspotId },
+          data: { order: index },
+        })
+      );
+
+      await this.prisma.$transaction(updates);
+
+      return { message: 'Hotspots reordered successfully' };
+    } catch (error) {
+      if (error instanceof NotFoundException || error instanceof ForbiddenException) {
+        throw error;
+      }
+      this.handlePrismaError(error);
+    }
+  }
+
+  async reorderAudioRegions(virtualTourId: number, userId: number, audioRegionIds: number[]) {
+    try {
+      await this.verifyTourOwnership(virtualTourId, userId);
+
+      const updates = audioRegionIds.map((audioRegionId, index) =>
+        this.prisma.virtualTourAudioRegion.update({
+          where: { id: audioRegionId },
+          data: { order: index },
+        })
+      );
+
+      await this.prisma.$transaction(updates);
+
+      return { message: 'Audio regions reordered successfully' };
+    } catch (error) {
+      if (error instanceof NotFoundException || error instanceof ForbiddenException) {
+        throw error;
+      }
+      this.handlePrismaError(error);
+    }
+  }
+
+  async reorderEffects(virtualTourId: number, userId: number, effectIds: number[]) {
+    try {
+      await this.verifyTourOwnership(virtualTourId, userId);
+
+      const updates = effectIds.map((effectId, index) =>
+        this.prisma.virtualTourEffect.update({
+          where: { id: effectId },
+          data: { order: index },
+        })
+      );
+
+      await this.prisma.$transaction(updates);
+
+      return { message: 'Effects reordered successfully' };
+    } catch (error) {
+      if (error instanceof NotFoundException || error instanceof ForbiddenException) {
+        throw error;
+      }
+      this.handlePrismaError(error);
+    }
+  }
+
+  // ==================== HELPER METHODS ====================
+
+  private buildWhereClause(filters: {
+    search?: string;
+    tourType?: string;
+    status?: string;
+    userId?: number;
+    isPublished?: boolean;
+  }): Prisma.VirtualTourWhereInput {
+    const where: Prisma.VirtualTourWhereInput = {};
+
+    if (filters.search) {
+      where.OR = [
+        { title: { contains: filters.search, mode: 'insensitive' } },
+        { description: { contains: filters.search, mode: 'insensitive' } },
+        { location: { contains: filters.search, mode: 'insensitive' } },
+      ];
+    }
+
+    if (filters.tourType) {
+      where.tourType = filters.tourType;
+    }
+
+    if (filters.status) {
+      where.status = filters.status;
+    }
+
+    if (filters.userId) {
+      where.userId = filters.userId;
+    }
+
+    if (filters.isPublished !== undefined) {
+      where.isPublished = filters.isPublished;
+    }
+
+    return where;
+  }
+
+  private getTourListIncludeFields() {
+    return {
+      user: {
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+        },
+      },
+      _count: {
+        select: {
+          hotspots: true,
+          audioRegions: true,
+          effects: true,
+        },
+      },
+    };
+  }
+
+  private getHotspotIncludeFields() {
+    return {
+      virtualTour: {
+        select: {
+          id: true,
+          title: true,
+          userId: true,
+        },
+      },
+    };
+  }
+
+  private getAudioRegionIncludeFields() {
+    return {
+      virtualTour: {
+        select: {
+          id: true,
+          title: true,
+          userId: true,
+        },
+      },
+    };
+  }
+
+  private getEffectIncludeFields() {
+    return {
+      virtualTour: {
+        select: {
+          id: true,
+          title: true,
+          userId: true,
+        },
+      },
+    };
   }
 }

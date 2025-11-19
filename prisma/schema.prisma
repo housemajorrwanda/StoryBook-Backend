@@ -14,479 +14,476 @@ datasource db {
 }
 
 model User {
-  id                Int          @id @default(autoincrement())
-  email             String       @unique
-  password          String?      // Make password optional for Google OAuth users
-  fullName          String?
-  residentPlace     String?
-  isActive          Boolean      @default(true)
-  resetToken        String?      @unique
-  resetTokenExpiry  DateTime?
+  id               Int       @id @default(autoincrement())
+  email            String    @unique
+  password         String? // Make password optional for Google OAuth users
+  fullName         String?
+  residentPlace    String?
+  isActive         Boolean   @default(true)
+  resetToken       String?   @unique
+  resetTokenExpiry DateTime?
   // Google OAuth fields
-  googleId          String?      @unique
-  avatar            String?      
-  provider          String       @default("local") // "local" or "google"
-  role              String       @default("user") // "user" or "admin"
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
-  
+  googleId         String?   @unique
+  avatar           String?
+  provider         String    @default("local") // "local" or "google"
+  role             String    @default("user") // "user" or "admin"
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
   // Relations
-  testimonies       Testimony[]
-  mediaProgress     TestimonyMediaProgress[]
-  virtualTours      VirtualTour[]
-  
+  testimonies   Testimony[]
+  mediaProgress TestimonyMediaProgress[]
+  virtualTours  VirtualTour[]
+
   @@map("users")
 }
 
 model Testimony {
-  id                    Int      @id @default(autoincrement())
-  
+  id Int @id @default(autoincrement())
+
   // Submission Type: written, audio, video
-  submissionType        String
-  
+  submissionType String
+
   // Identity Preference: public, anonymous
-  identityPreference    String
-  
+  identityPreference String
+
   // Personal Information
-  fullName              String?
-  relationToEvent       String?  // e.g., "Survivor", "Witness", "Family Member", "Friend"
-  nameOfRelative        String?  
-  location              String?
-  dateOfEventFrom       DateTime?  // Start of event date range
-  dateOfEventTo         DateTime?  // End of event date range
-  
+  fullName        String?
+  relationToEvent String? // e.g., "Survivor", "Witness", "Family Member", "Friend"
+  nameOfRelative  String?
+  location        String?
+  dateOfEventFrom DateTime? // Start of event date range
+  dateOfEventTo   DateTime? // End of event date range
+
   // Event Information
-  eventTitle            String
-  eventDescription      String?
-  
+  eventTitle       String
+  eventDescription String?
+
   // Written Testimony (only for written type)
-  fullTestimony         String?  @db.Text
+  fullTestimony       String?   @db.Text
   // Draft support for written resume (no new endpoints)
-  isDraft               Boolean  @default(false)
-  draftCursorPosition   Int?
-  draftLastSavedAt      DateTime?
-  lastReminderSentAt    DateTime?  
+  isDraft             Boolean   @default(false)
+  draftCursorPosition Int?
+  draftLastSavedAt    DateTime?
+  lastReminderSentAt  DateTime?
 
   // Edit cadence control
-  lastEditedAt          DateTime?
-  lastPublishedAt       DateTime?
-  nextEditableAt        DateTime?
-  
+  lastEditedAt    DateTime?
+  lastPublishedAt DateTime?
+  nextEditableAt  DateTime?
+
   // Audio (for audio type)
-  audioUrl              String?
-  audioFileName         String?
-  audioDuration         Int?     // Duration in seconds
-  
+  audioUrl      String?
+  audioFileName String?
+  audioDuration Int? // Duration in seconds
+
   // Video (for video type)
-  videoUrl              String?
-  videoFileName         String?
-  videoDuration         Int?     // Duration in seconds
-  
+  videoUrl      String?
+  videoFileName String?
+  videoDuration Int? // Duration in seconds
+
   // Images (optional for all types)
-  images                TestimonyImage[]
+  images    TestimonyImage[]
   // Relatives (normalized, multi)
-  relatives             TestimonyRelative[]
-  
+  relatives TestimonyRelative[]
+
   // Consent
-  agreedToTerms         Boolean  @default(false)
-  
+  agreedToTerms Boolean @default(false)
+
   // Status and metadata
-  status                String   @default("pending") // pending, approved, rejected, reported, feedback_requested
-  isPublished           Boolean  @default(false)
-  impressions           Int      @default(0) // Track view count
+  status      String  @default("pending") // pending, approved, rejected, reported, feedback_requested
+  isPublished Boolean @default(false)
+  impressions Int     @default(0) // Track view count
 
   // AI text artifacts
-  transcript            String?  @db.Text
-  summary               String?  @db.Text
-  keyPhrases            String[]
-  
-  // Admin actions
-  adminFeedback         String?  @db.Text // Feedback from admin
-  reportReason          String?  @db.Text // Reason for reporting
-  reviewedBy            Int?     // Admin who reviewed
-  reviewedAt            DateTime? // When it was reviewed
-  
-  // Relations
-  userId                Int?
-  user                  User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  mediaProgress         TestimonyMediaProgress[]
-  // Normalized relations
-  events                TestimonyEvent[]
-  locations             TestimonyLocation[]
-  embeddings            TestimonyEmbedding[]
-  edgesFrom             TestimonyEdge[]     @relation("edges_from")
-  edgesTo               TestimonyEdge[]     @relation("edges_to")
-  
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  transcript String?  @db.Text
+  summary    String?  @db.Text
+  keyPhrases String[]
 
-  @@map("testimonies")
+  // Admin actions
+  adminFeedback String?   @db.Text // Feedback from admin
+  reportReason  String?   @db.Text // Reason for reporting
+  reviewedBy    Int? // Admin who reviewed
+  reviewedAt    DateTime? // When it was reviewed
+
+  // Relations
+  userId        Int?
+  user          User?                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mediaProgress TestimonyMediaProgress[]
+  // Normalized relations
+  events        TestimonyEvent[]
+  locations     TestimonyLocation[]
+  embeddings    TestimonyEmbedding[]
+  edgesFrom     TestimonyEdge[]          @relation("edges_from")
+  edgesTo       TestimonyEdge[]          @relation("edges_to")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([userId])
   @@index([submissionType])
   @@index([status])
+  @@map("testimonies")
 }
 
 model TestimonyImage {
-  id                Int        @id @default(autoincrement())
-  imageUrl          String
-  imageFileName     String
-  description       String?
-  order             Int        @default(0)
-  
-  testimonyId       Int
-  testimony         Testimony  @relation(fields: [testimonyId], references: [id], onDelete: Cascade)
-  
-  createdAt         DateTime   @default(now())
-  updatedAt         DateTime   @updatedAt
+  id            Int     @id @default(autoincrement())
+  imageUrl      String
+  imageFileName String
+  description   String?
+  order         Int     @default(0)
 
-  @@map("testimony_images")
+  testimonyId Int
+  testimony   Testimony @relation(fields: [testimonyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([testimonyId])
+  @@map("testimony_images")
 }
 
 model TestimonyMediaProgress {
-  id                Int       @id @default(autoincrement())
-  userId            Int
-  testimonyId       Int
-  lastPositionSeconds Int     @default(0) // Where user left off (in seconds)
-  
-  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  testimony         Testimony @relation(fields: [testimonyId], references: [id], onDelete: Cascade)
-  
-  updatedAt         DateTime  @updatedAt
+  id                  Int @id @default(autoincrement())
+  userId              Int
+  testimonyId         Int
+  lastPositionSeconds Int @default(0) // Where user left off (in seconds)
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  testimony Testimony @relation(fields: [testimonyId], references: [id], onDelete: Cascade)
+
+  updatedAt DateTime @updatedAt
 
   @@unique([userId, testimonyId])
-  @@map("testimony_media_progress")
   @@index([userId])
   @@index([testimonyId])
+  @@map("testimony_media_progress")
 }
 
-
 model Location {
-  id             Int      @id @default(autoincrement())
+  id             Int     @id @default(autoincrement())
   name           String
   normalizedName String?
   lat            Float?
   lng            Float?
 
-  testimonies    TestimonyLocation[]
+  testimonies TestimonyLocation[]
 
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  @@map("locations")
   @@index([normalizedName])
+  @@map("locations")
 }
 
 model TestimonyLocation {
-  id           Int      @id @default(autoincrement())
-  testimonyId  Int
-  locationId   Int
-  notes        String?
-  confidence   Float?
+  id          Int     @id @default(autoincrement())
+  testimonyId Int
+  locationId  Int
+  notes       String?
+  confidence  Float?
 
-  testimony    Testimony @relation(fields: [testimonyId], references: [id], onDelete: Cascade)
-  location     Location  @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  testimony Testimony @relation(fields: [testimonyId], references: [id], onDelete: Cascade)
+  location  Location  @relation(fields: [locationId], references: [id], onDelete: Cascade)
 
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  @@map("testimony_locations")
   @@index([testimonyId])
   @@index([locationId])
+  @@map("testimony_locations")
 }
 
-
 model Event {
-  id             Int      @id @default(autoincrement())
+  id             Int       @id @default(autoincrement())
   title          String
   dateRangeStart DateTime?
   dateRangeEnd   DateTime?
   aliases        String[]
 
-  testimonies    TestimonyEvent[]
+  testimonies TestimonyEvent[]
 
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  @@map("events")
   @@index([title])
+  @@map("events")
 }
 
 model TestimonyEvent {
-  id           Int      @id @default(autoincrement())
-  testimonyId  Int
-  eventId      Int
-  notes        String?
-  confidence   Float?
+  id          Int     @id @default(autoincrement())
+  testimonyId Int
+  eventId     Int
+  notes       String?
+  confidence  Float?
 
-  testimony    Testimony @relation(fields: [testimonyId], references: [id], onDelete: Cascade)
-  event        Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  testimony Testimony @relation(fields: [testimonyId], references: [id], onDelete: Cascade)
+  event     Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  @@map("testimony_events")
   @@index([testimonyId])
   @@index([eventId])
+  @@map("testimony_events")
 }
 
-
 model TestimonyEmbedding {
-  id           Int       @id @default(autoincrement())
-  testimonyId  Int
-  section      String    // title | description | transcript | summary
-  model        String    // e.g., text-embedding-3-large
-  vector       Float[]   // embedding vector
-  createdAt    DateTime  @default(now())
+  id          Int      @id @default(autoincrement())
+  testimonyId Int
+  section     String // title | description | transcript | summary
+  model       String // e.g., text-embedding-3-large
+  vector      Float[] // embedding vector
+  createdAt   DateTime @default(now())
 
-  testimony    Testimony @relation(fields: [testimonyId], references: [id], onDelete: Cascade)
+  testimony Testimony @relation(fields: [testimonyId], references: [id], onDelete: Cascade)
 
-  @@map("testimony_embeddings")
   @@index([testimonyId])
   @@index([model])
   @@index([section])
+  @@map("testimony_embeddings")
 }
 
 model TestimonyEdge {
-  id        Int       @id @default(autoincrement())
+  id        Int      @id @default(autoincrement())
   fromId    Int
   toId      Int
-  type      String    // same_event | same_person | same_location | semantic_similarity
+  type      String // same_event | same_person | same_location | semantic_similarity
   score     Float
-  source    String?   // rule name / model
-  createdAt DateTime  @default(now())
+  source    String? // rule name / model
+  createdAt DateTime @default(now())
 
-  from      Testimony @relation("edges_from", fields: [fromId], references: [id], onDelete: Cascade)
-  to        Testimony @relation("edges_to", fields: [toId], references: [id], onDelete: Cascade)
+  from Testimony @relation("edges_from", fields: [fromId], references: [id], onDelete: Cascade)
+  to   Testimony @relation("edges_to", fields: [toId], references: [id], onDelete: Cascade)
 
-  @@map("testimony_edges")
   @@index([fromId])
   @@index([toId])
   @@index([type])
+  @@map("testimony_edges")
 }
 
 model RelativeType {
-  id          Int      @id @default(autoincrement())
-  slug        String   @unique
+  id          Int     @id @default(autoincrement())
+  slug        String  @unique
   displayName String
-  synonyms    String?  @db.Text
+  synonyms    String? @db.Text
 
-  relatives   TestimonyRelative[]
+  relatives TestimonyRelative[]
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("relative_types")
 }
 
 model TestimonyRelative {
-  id             Int       @id @default(autoincrement())
+  id             Int     @id @default(autoincrement())
   testimonyId    Int
   relativeTypeId Int
   personName     String
   notes          String?
-  order          Int       @default(0)
+  order          Int     @default(0)
 
-  testimony      Testimony   @relation(fields: [testimonyId], references: [id], onDelete: Cascade)
-  relativeType   RelativeType @relation(fields: [relativeTypeId], references: [id], onDelete: Cascade)
+  testimony    Testimony    @relation(fields: [testimonyId], references: [id], onDelete: Cascade)
+  relativeType RelativeType @relation(fields: [relativeTypeId], references: [id], onDelete: Cascade)
 
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  @@map("testimony_relatives")
   @@index([testimonyId])
   @@index([relativeTypeId])
+  @@map("testimony_relatives")
 }
 
 // ========== Virtual Tour / 3D Visit (Standalone) ==========
 model VirtualTour {
-  id                    Int      @id @default(autoincrement())
-  
-  // Basic Information
-  title                 String
-  description           String?  @db.Text
-  location              String
-  
-  // Tour Type
-  tourType              String   // embed, 360_image, 3d_model, 360_video
-  
-  // Tour Content
-  embedUrl              String?   // External embed URL (Matterport, Kuula, Roundme, etc.)
-  image360Url           String?   // 360° panoramic image URL
-  video360Url           String?   // 360° video URL
-  model3dUrl            String?   // 3D model file URL (GLB/GLTF)
-  fileName              String?   // Original file name
-  
-  // Interactive Elements
-  hotspots              VirtualTourHotspot[]
-  audioRegions          VirtualTourAudioRegion[]
-  effects               VirtualTourEffect[]
-  
-  // Status and metadata
-  status                String   @default("draft") // draft, published, archived
-  isPublished           Boolean  @default(false)
-  impressions           Int      @default(0) // Track view count
-  
-  // Relations
-  userId                Int?
-  user                  User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id Int @id @default(autoincrement())
 
-  @@map("virtual_tours")
+  // Basic Information
+  title       String
+  description String? @db.Text
+  location    String
+
+  // Tour Type
+  tourType String // embed, 360_image, 3d_model, 360_video
+
+  // Tour Content
+  embedUrl    String? // External embed URL (Matterport, Kuula, Roundme, etc.)
+  image360Url String? // 360° panoramic image URL
+  video360Url String? // 360° video URL
+  model3dUrl  String? // 3D model file URL (GLB/GLTF)
+  fileName    String? // Original file name
+
+  // Interactive Elements
+  hotspots     VirtualTourHotspot[]
+  audioRegions VirtualTourAudioRegion[]
+  effects      VirtualTourEffect[]
+
+  // Status and metadata
+  status      String  @default("draft") // draft, published, archived
+  isPublished Boolean @default(false)
+  impressions Int     @default(0) // Track view count
+
+  // Relations
+  userId Int?
+  user   User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([userId])
   @@index([status])
   @@index([tourType])
+  @@map("virtual_tours")
 }
 
 // Interactive Hotspots - Clickable/interactive points in the tour
 model VirtualTourHotspot {
-  id                    Int      @id @default(autoincrement())
-  virtualTourId         Int
-  
-  // Position in 3D space or view angle
-  positionX             Float?   // X coordinate
-  positionY             Float?   // Y coordinate
-  positionZ             Float?   // Z coordinate
-  pitch                 Float?   // Vertical angle (-90 to 90)
-  yaw                   Float?   // Horizontal angle (0 to 360)
-  
-  // Hotspot behavior
-  type                  String   // info, link, audio, video, image, effect
-  title                 String?
-  description           String?  @db.Text
-  icon                  String?  // Icon name or URL
-  
-  // Action data
-  actionUrl             String?   // URL to navigate to
-  actionAudioUrl       String?   // Audio to play
-  actionVideoUrl       String?   // Video to play
-  actionImageUrl       String?   // Image to show
-  actionEffect          String?   // Effect name (e.g., "fade", "zoom", "shake")
-  
-  // Trigger settings
-  triggerDistance       Float?   @default(5.0) // Distance to trigger (in meters)
-  autoTrigger           Boolean  @default(false) // Auto-trigger when in range
-  showOnHover           Boolean  @default(true)
-  
-  // Visual settings
-  color                 String?  // Color code
-  size                  Float?   @default(1.0) // Size multiplier
-  
-  order                 Int      @default(0)
-  
-  virtualTour           VirtualTour @relation(fields: [virtualTourId], references: [id], onDelete: Cascade)
-  
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id            Int @id @default(autoincrement())
+  virtualTourId Int
 
-  @@map("virtual_tour_hotspots")
+  // Position in 3D space or view angle
+  positionX Float? // X coordinate
+  positionY Float? // Y coordinate
+  positionZ Float? // Z coordinate
+  pitch     Float? // Vertical angle (-90 to 90)
+  yaw       Float? // Horizontal angle (0 to 360)
+
+  // Hotspot behavior
+  type        String // info, link, audio, video, image, effect
+  title       String?
+  description String? @db.Text
+  icon        String? // Icon name or URL
+
+  // Action data
+  actionUrl      String? // URL to navigate to
+  actionAudioUrl String? // Audio to play
+  actionVideoUrl String? // Video to play
+  actionImageUrl String? // Image to show
+  actionEffect   String? // Effect name (e.g., "fade", "zoom", "shake")
+
+  // Trigger settings
+  triggerDistance Float?  @default(5.0) // Distance to trigger (in meters)
+  autoTrigger     Boolean @default(false) // Auto-trigger when in range
+  showOnHover     Boolean @default(true)
+
+  // Visual settings
+  color String? // Color code
+  size  Float?  @default(1.0) // Size multiplier
+
+  order Int @default(0)
+
+  virtualTour VirtualTour @relation(fields: [virtualTourId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([virtualTourId])
   @@index([type])
+  @@map("virtual_tour_hotspots")
 }
 
 // Audio Regions - Areas where audio plays based on position
 model VirtualTourAudioRegion {
-  id                    Int      @id @default(autoincrement())
-  virtualTourId         Int
-  
-  // Region definition (spherical or box)
-  regionType            String   @default("sphere") // sphere, box
-  
-  // Position
-  centerX               Float
-  centerY               Float
-  centerZ               Float
-  
-  // Sphere parameters
-  radius                Float?   // For sphere regions
-  
-  // Box parameters
-  width                 Float?   // For box regions
-  height                Float?   // For box regions
-  depth                 Float?   // For box regions
-  
-  // Audio settings
-  audioUrl              String
-  audioFileName         String
-  volume                Float    @default(1.0) // 0.0 to 1.0
-  loop                  Boolean  @default(true)
-  fadeInDuration        Float?   @default(2.0) // Seconds to fade in
-  fadeOutDuration       Float?   @default(2.0) // Seconds to fade out
-  
-  // Spatial audio settings
-  spatialAudio          Boolean  @default(true) // 3D positional audio
-  minDistance           Float?   @default(1.0) // Minimum distance for full volume
-  maxDistance           Float?   @default(10.0) // Maximum distance to hear
-  
-  // Trigger settings
-  autoPlay              Boolean  @default(true) // Auto-play when entering region
-  playOnce              Boolean  @default(false) // Play only once per visit
-  
-  title                 String?
-  description           String?  @db.Text
-  
-  order                 Int      @default(0)
-  
-  virtualTour           VirtualTour @relation(fields: [virtualTourId], references: [id], onDelete: Cascade)
-  
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id            Int @id @default(autoincrement())
+  virtualTourId Int
 
-  @@map("virtual_tour_audio_regions")
+  // Region definition (spherical or box)
+  regionType String @default("sphere") // sphere, box
+
+  // Position
+  centerX Float
+  centerY Float
+  centerZ Float
+
+  // Sphere parameters
+  radius Float? // For sphere regions
+
+  // Box parameters
+  width  Float? // For box regions
+  height Float? // For box regions
+  depth  Float? // For box regions
+
+  // Audio settings
+  audioUrl        String
+  audioFileName   String
+  volume          Float   @default(1.0) // 0.0 to 1.0
+  loop            Boolean @default(true)
+  fadeInDuration  Float?  @default(2.0) // Seconds to fade in
+  fadeOutDuration Float?  @default(2.0) // Seconds to fade out
+
+  // Spatial audio settings
+  spatialAudio Boolean @default(true) // 3D positional audio
+  minDistance  Float?  @default(1.0) // Minimum distance for full volume
+  maxDistance  Float?  @default(10.0) // Maximum distance to hear
+
+  // Trigger settings
+  autoPlay Boolean @default(true) // Auto-play when entering region
+  playOnce Boolean @default(false) // Play only once per visit
+
+  title       String?
+  description String? @db.Text
+
+  order Int @default(0)
+
+  virtualTour VirtualTour @relation(fields: [virtualTourId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([virtualTourId])
   @@index([regionType])
+  @@map("virtual_tour_audio_regions")
 }
 
 // Visual/Sound Effects - Effects triggered at positions or events
 model VirtualTourEffect {
-  id                    Int      @id @default(autoincrement())
-  virtualTourId         Int
-  
-  // Effect type
-  effectType            String   // visual, sound, particle, animation
-  
-  // Position (if position-based)
-  positionX             Float?
-  positionY             Float?
-  positionZ             Float?
-  pitch                 Float?
-  yaw                   Float?
-  
-  // Trigger conditions
-  triggerType           String   // on_enter, on_look, on_click, on_timer, always
-  triggerDistance       Float?   // Distance to trigger
-  triggerDelay          Float?   @default(0.0) // Delay before triggering (seconds)
-  
-  // Effect properties
-  effectName            String   // e.g., "fog", "rain", "light_flash", "sound_ambient"
-  intensity             Float?   @default(1.0) // Effect intensity (0.0 to 1.0)
-  duration              Float?   // Effect duration in seconds (null = infinite)
-  color                 String?  // Color for visual effects
-  soundUrl              String?  // Sound file URL for sound effects
-  particleCount         Int?     // Number of particles (for particle effects)
-  
-  // Visual settings
-  opacity               Float?   @default(1.0)
-  size                  Float?   @default(1.0)
-  
-  // Animation settings
-  animationType         String?  // fade, slide, rotate, pulse, shake
-  animationSpeed        Float?   @default(1.0)
-  
-  title                 String?
-  description           String?  @db.Text
-  
-  order                 Int      @default(0)
-  
-  virtualTour           VirtualTour @relation(fields: [virtualTourId], references: [id], onDelete: Cascade)
-  
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id            Int @id @default(autoincrement())
+  virtualTourId Int
 
-  @@map("virtual_tour_effects")
+  // Effect type
+  effectType String // visual, sound, particle, animation
+
+  // Position (if position-based)
+  positionX Float?
+  positionY Float?
+  positionZ Float?
+  pitch     Float?
+  yaw       Float?
+
+  // Trigger conditions
+  triggerType     String // on_enter, on_look, on_click, on_timer, always
+  triggerDistance Float? // Distance to trigger
+  triggerDelay    Float? @default(0.0) // Delay before triggering (seconds)
+
+  // Effect properties
+  effectName    String // e.g., "fog", "rain", "light_flash", "sound_ambient"
+  intensity     Float?  @default(1.0) // Effect intensity (0.0 to 1.0)
+  duration      Float? // Effect duration in seconds (null = infinite)
+  color         String? // Color for visual effects
+  soundUrl      String? // Sound file URL for sound effects
+  particleCount Int? // Number of particles (for particle effects)
+
+  // Visual settings
+  opacity Float? @default(1.0)
+  size    Float? @default(1.0)
+
+  // Animation settings
+  animationType  String? // fade, slide, rotate, pulse, shake
+  animationSpeed Float?  @default(1.0)
+
+  title       String?
+  description String? @db.Text
+
+  order Int @default(0)
+
+  virtualTour VirtualTour @relation(fields: [virtualTourId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([virtualTourId])
   @@index([effectType])
   @@index([triggerType])
+  @@map("virtual_tour_effects")
 }
