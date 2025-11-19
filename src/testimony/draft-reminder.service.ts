@@ -21,14 +21,8 @@ export class DraftReminderService {
     this.logger.log('Starting draft reminder check...');
 
     try {
-      // Find drafts that are at least 7 days old and haven't been updated
       const oneWeekAgo = new Date();
       oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-
-      // Find drafts that:
-      // 1. Are still drafts (isDraft = true)
-      // 2. Were last saved at least 7 days ago
-      // 3. Haven't had a reminder sent in the last 7 days (or never)
       const oldDrafts = (await this.prisma.testimony.findMany({
         where: {
           isDraft: true,

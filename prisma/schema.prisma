@@ -48,13 +48,12 @@ model Testimony {
   identityPreference String
 
   // Personal Information
-  fullName        String?
-  relationToEvent String? // e.g., "Survivor", "Witness", "Family Member", "Friend"
-  nameOfRelative  String?
-  location        String?
-  dateOfEventFrom DateTime? // Start of event date range
-  dateOfEventTo   DateTime? // End of event date range
-
+  fullName              String?
+  relationToEvent       String?  // e.g., "Survivor", "Witness", "Family Member", "Friend" 
+  location              String?
+  dateOfEventFrom       DateTime?  // Start of event date range
+  dateOfEventTo         DateTime?  // End of event date range
+  
   // Event Information
   eventTitle       String
   eventDescription String?
@@ -73,27 +72,26 @@ model Testimony {
   nextEditableAt  DateTime?
 
   // Audio (for audio type)
-  audioUrl      String?
-  audioFileName String?
-  audioDuration Int? // Duration in seconds
-
+  audioUrl              String?
+  audioFileName         String?
+  audioDuration         Int?    
+  
   // Video (for video type)
-  videoUrl      String?
-  videoFileName String?
-  videoDuration Int? // Duration in seconds
-
-  // Images (optional for all types)
-  images    TestimonyImage[]
-  // Relatives (normalized, multi)
-  relatives TestimonyRelative[]
-
+  videoUrl              String?
+  videoFileName         String?
+  videoDuration         Int?     
+  
+  
+  images                TestimonyImage[]
+  relatives             TestimonyRelative[]
+  
   // Consent
   agreedToTerms Boolean @default(false)
 
   // Status and metadata
-  status      String  @default("pending") // pending, approved, rejected, reported, feedback_requested
-  isPublished Boolean @default(false)
-  impressions Int     @default(0) // Track view count
+  status                String   @default("pending") 
+  isPublished           Boolean  @default(false)
+  impressions           Int      @default(0) 
 
   // AI text artifacts
   transcript String?  @db.Text
