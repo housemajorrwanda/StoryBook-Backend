@@ -19,6 +19,13 @@ export class UserDto {
   @ApiProperty({ description: 'Whether the user account is active' })
   isActive: boolean;
 
+  @ApiProperty({
+    description: 'Role of the user',
+    example: 'admin',
+    required: false,
+  })
+  role?: string;
+
   @ApiProperty({ description: 'The date when the user was created' })
   createdAt: Date;
 

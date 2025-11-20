@@ -74,20 +74,76 @@ export class UserService {
     return bcrypt.compare(plainPassword, hashedPassword);
   }
 
-  async findAll(): Promise<User[]> {
-    const users = await this.prisma.user.findMany({
-      select: {
-        id: true,
-        email: true,
-        fullName: true,
-        residentPlace: true,
-        isActive: true,
-        createdAt: true,
-        updatedAt: true,
-        password: false,
-      },
-    });
-    return users as unknown as User[];
+  async findAll(options?: {
+    skip?: number;
+    limit?: number;
+    search?: string;
+  }): Promise<{
+    data: User[];
+    total: number;
+    skip: number;
+    limit: number;
+  }> {
+    const rawSkip = options?.skip ?? 0;
+    const rawLimit = options?.limit ?? 20;
+    const skip = Number.isFinite(rawSkip) && rawSkip > 0 ? rawSkip : 0;
+    const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? rawLimit : 20;
+    const cappedLimit = Math.min(limit, 100);
+    const search = options?.search?.trim();
+
+    const where =
+      search && search.length > 0
+        ? {
+            OR: [
+              {
+                email: {
+                  contains: search,
+                  mode: 'insensitive' as const,
+                },
+              },
+              {
+                fullName: {
+                  contains: search,
+                  mode: 'insensitive' as const,
+                },
+              },
+              {
+                residentPlace: {
+                  contains: search,
+                  mode: 'insensitive' as const,
+                },
+              },
+            ],
+          }
+        : undefined;
+
+    const [total, users] = await this.prisma.$transaction([
+      this.prisma.user.count({ where }),
+      this.prisma.user.findMany({
+        where,
+        skip,
+        take: cappedLimit,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          email: true,
+          fullName: true,
+          residentPlace: true,
+          isActive: true,
+          role: true,
+          createdAt: true,
+          updatedAt: true,
+          password: false,
+        },
+      }),
+    ]);
+
+    return {
+      data: users as unknown as User[],
+      total,
+      skip,
+      limit: cappedLimit,
+    };
   }
 
   async update(id: number, updateData: Partial<User>): Promise<User> {
