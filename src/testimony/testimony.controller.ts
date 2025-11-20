@@ -307,13 +307,33 @@ export class TestimonyController {
 
           let descriptions: string[] = [];
           if (Array.isArray(rawDescriptions)) {
+            // Already an array
             descriptions = rawDescriptions
               .map((d) => (typeof d === 'string' ? d : ''))
               .map((d) => d.trim())
               .map((d) => (d.length > 500 ? d.slice(0, 500) : d));
           } else if (typeof rawDescriptions === 'string') {
-            const d = rawDescriptions.trim();
-            descriptions = [d.length > 500 ? d.slice(0, 500) : d];
+            // Try to parse as JSON string first
+            try {
+              const parsed = JSON.parse(rawDescriptions.trim()) as unknown;
+              if (Array.isArray(parsed)) {
+                descriptions = parsed
+                  .map((d) => (typeof d === 'string' ? d : ''))
+                  .map((d) => d.trim())
+                  .map((d) => (d.length > 500 ? d.slice(0, 500) : d));
+              } else if (typeof parsed === 'string') {
+                // Single string description
+                descriptions = [
+                  parsed.length > 500 ? parsed.slice(0, 500) : parsed,
+                ];
+              }
+              // If parsed is not an array or string, descriptions stays empty
+            } catch {
+              // Not JSON, treat as single string description
+              const d = rawDescriptions.trim();
+              descriptions =
+                d.length > 0 ? [d.length > 500 ? d.slice(0, 500) : d] : [];
+            }
           }
 
           dto.images = uploaded.successful.map((img, index) => ({
