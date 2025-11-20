@@ -136,11 +136,18 @@ export class AuthController {
     status: 302,
     description: 'Redirects to Google OAuth consent screen',
   })
+  googleAuth() {
+    // This method body is intentionally empty.
+    // The GoogleAuthGuard intercepts the request and automatically
+    // redirects to Google's OAuth consent screen before this method executes.
+    // The guard handles the entire OAuth initiation flow.
+  }
+
   @Get('google/callback')
   @UseGuards(GoogleAuthGuard)
   @ApiExcludeEndpoint()
-  googleAuthRedirect(
-    @Request() req: { user: { access_token: string } },
+  googleAuthCallback(
+    @Request() req: { user: AuthResponseDto },
     @Res() res: Response,
   ) {
     try {
