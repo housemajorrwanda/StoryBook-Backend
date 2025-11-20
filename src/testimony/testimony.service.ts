@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
+import { NotificationService } from '../notification/notification.service';
 import { CreateTestimonyDto } from './dto/create-testimony.dto';
 import { UpdateTestimonyDto } from './dto/update-testimony.dto';
 
@@ -15,6 +16,7 @@ export class TestimonyService {
   constructor(
     private prisma: PrismaService,
     private emailService: EmailService,
+    private notificationService: NotificationService,
   ) {}
 
   async create(userId: number, createTestimonyDto: CreateTestimonyDto) {
@@ -74,6 +76,19 @@ export class TestimonyService {
             data: validRelatives,
           });
         }
+      }
+
+      if (!createTestimonyDto.isDraft) {
+        void this.notificationService
+          .notifyTestimonySubmitted({
+            testimonyId: created.id,
+            submissionType: createTestimonyDto.submissionType,
+            submitterName: createTestimonyDto.fullName ?? undefined,
+            isDraft: createTestimonyDto.isDraft,
+          })
+          .catch((err) =>
+            console.warn('Failed to create admin notification:', err),
+          );
       }
 
       // Return fully loaded testimony including relatives
@@ -811,21 +826,34 @@ export class TestimonyService {
         },
       });
 
-      // Notify owner via email on status changes
-      try {
-        const userEmail = (testimony as any)?.user?.email as string | undefined;
-        if (userEmail) {
-          await this.emailService.sendTestimonyStatusEmail({
+      // Notify owner via email on status changes (non-blocking)
+      const userEmail = (testimony as any)?.user?.email as string | undefined;
+      if (userEmail) {
+        void this.emailService
+          .sendTestimonyStatusEmail({
             to: userEmail,
             status: status as 'approved' | 'rejected' | 'pending',
             feedback,
             testimonyTitle: testimony.eventTitle,
             testimonyId: testimony.id,
+          })
+          .catch((notifyErr) => {
+            // Log but don't fail the request if email fails
+            console.warn('Failed to send testimony status email:', notifyErr);
           });
-        }
-      } catch (notifyErr) {
-        // Log but don't fail the request if email fails
-        console.warn('Failed to send testimony status email:', notifyErr);
+      }
+
+      if (status !== 'pending') {
+        void this.notificationService
+          .notifyFeedbackResolved({
+            testimonyId: testimony.id,
+            status,
+            adminId,
+            feedback,
+          })
+          .catch((err) =>
+            console.warn('Failed to create feedback notification:', err),
+          );
       }
 
       return testimony;

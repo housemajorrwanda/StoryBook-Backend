@@ -31,11 +31,33 @@ model User {
   updatedAt        DateTime  @updatedAt
 
   // Relations
-  testimonies   Testimony[]
-  mediaProgress TestimonyMediaProgress[]
-  virtualTours  VirtualTour[]
-
+  testimonies       Testimony[]
+  mediaProgress     TestimonyMediaProgress[]
+  virtualTours      VirtualTour[]
+  notifications     Notification[]
+  
   @@map("users")
+}
+
+model Notification {
+  id          Int      @id @default(autoincrement())
+  title       String
+  message     String?
+  type        String
+  audience    String   @default("admin") // admin | user
+  status      String   @default("unread") // unread | read
+  priority    String   @default("normal") // normal | high
+  metadata    Json?
+  userId      Int?
+  createdAt   DateTime @default(now())
+  readAt      DateTime?
+
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("notifications")
+  @@index([audience, status])
+  @@index([userId])
+  @@index([type])
 }
 
 model Testimony {

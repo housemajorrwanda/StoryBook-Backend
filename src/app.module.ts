@@ -11,6 +11,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { TestimonyModule } from './testimony/testimony.module';
 import { UploadModule } from './upload/upload.module';
 import { VirtualTourModule } from './virtual-tour/virtual-tour.module';
+import { NotificationModule } from './notification/notification.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { VirtualTourModule } from './virtual-tour/virtual-tour.module';
     TestimonyModule,
     UploadModule,
     VirtualTourModule,
+    NotificationModule,
   ],
   controllers: [AppController],
   providers: [
