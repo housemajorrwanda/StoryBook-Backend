@@ -12,6 +12,7 @@ import { TestimonyModule } from './testimony/testimony.module';
 import { UploadModule } from './upload/upload.module';
 import { VirtualTourModule } from './virtual-tour/virtual-tour.module';
 import { NotificationModule } from './notification/notification.module';
+import { EducationModule } from './education/education.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { NotificationModule } from './notification/notification.module';
     UploadModule,
     VirtualTourModule,
     NotificationModule,
+    EducationModule,
   ],
   controllers: [AppController],
   providers: [
