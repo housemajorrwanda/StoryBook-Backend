@@ -209,6 +209,38 @@ async create(
     return this.educationService.findPublished(filters);
   }
 
+  @Get('popular')
+  @ApiOperation({ summary: 'Get popular educational content (most viewed)' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Number of items to return' })
+  @ApiResponse({
+    status: 200,
+    description: 'List of popular educational content',
+    type: [EducationResponseDto],
+  })
+  async getPopular(
+    @Request() req,
+    @Query('limit') limit?: string,
+  ) {
+    const currentUserId = req.user?.id;
+    const limitNum = limit ? parseInt(limit, 10) : 10;
+    return this.educationService.getPopularContent(limitNum, currentUserId);
+  }
+
+  @Get('statistics')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Get educational content statistics' })
+  @ApiResponse({
+    status: 200,
+    description: 'Content statistics',
+  })
+  async getStatistics() {
+    return this.educationService.getContentStatistics();
+  }
+  
+
+
   @Get('category/:category')
   @ApiOperation({ summary: 'Get educational content by category' })
   @ApiParam({ name: 'category', enum: ContentCategory })

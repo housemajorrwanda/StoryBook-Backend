@@ -519,15 +519,18 @@ model EducationalContent {
   content     String? @db.Text
 
   // Type of educational material
-  type String // article, video, interactive, timeline , survivor-stories , memorials
+  type String // article, video, interactive, timeline, audio, survivor-stories, memorials
 
   // Media
   imageUrl String?
   videoUrl String?
-  duration Int? // in seconds
+  duration Int? // in minutes (to match the component expectation)
+
+  // NEW: Engagement metrics
+  views Int @default(0) // Track view count
 
   // Organization
-  category String? // history, prevention, reconciliation , audio
+  category String? // history, prevention, reconciliation, audio
   tags     String[]
 
   // Status
@@ -570,9 +573,8 @@ model ScenarioSimulation {
   status      String  @default("draft")
   isPublished Boolean @default(false)
 
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([educationId])
   @@map("scenario_simulations")
@@ -590,8 +592,11 @@ model UserProgress {
 
   // Progress
   progress    Float     @default(0.0) // 0.0 to 1.0
-  isCompleted Boolean   @default(false)
-  completedAt DateTime?
+  isCompleted Boolean   @default(false)  
+  completedAt DateTime? 
+
+  // NEW: Track last access
+  lastAccessedAt DateTime? @default(now()) 
 
   // User feedback
   rating   Int? // 1-5 stars
@@ -606,6 +611,7 @@ model UserProgress {
   updatedAt DateTime @updatedAt
 
   @@unique([userId, testimonyId, educationId, simulationId])
+  @@unique([userId, educationId]) 
   @@index([userId])
   @@index([contentType])
   @@index([isCompleted])

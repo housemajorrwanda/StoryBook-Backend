@@ -19,7 +19,8 @@ export enum ContentType {
     ARTICLE = 'article',
     VIDEO = 'video',
     INTERACTIVE = 'interactive',
-    TIMELINE = 'timeline'
+    TIMELINE = 'timeline',
+    AUDIO = 'audio'
 }
 
 export enum ContentStatus {
@@ -32,7 +33,8 @@ export enum ContentCategory {
     HISTORY = 'history',
     PREVENTION = 'prevention',
     RECONCILIATION = 'reconciliation',
-    EDUCATION = 'education'
+    EDUCATION = 'education',
+    AUDIO = 'audio'
 }
 
 export class CreateEducationDto {
@@ -94,15 +96,15 @@ export class CreateEducationDto {
     videoUrl?: string;
 
     @ApiPropertyOptional({
-        description: 'Duration of video/audio content in seconds',
-        example: 3600,
+        description: 'Duration of video/audio content in minutes',
+        example: 60,
         minimum: 1,
-        maximum: 86400,
+        maximum: 1440,
     })
-    @ValidateIf((o) => o.type === ContentType.VIDEO)
+    @ValidateIf((o) => o.type === ContentType.VIDEO || o.type === ContentType.AUDIO)
     @IsNumber()
     @Min(1)
-    @Max(86400)
+    @Max(1440)
     duration?: number;
 
     @ApiPropertyOptional({
