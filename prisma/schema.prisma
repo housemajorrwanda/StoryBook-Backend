@@ -31,33 +31,35 @@ model User {
   updatedAt        DateTime  @updatedAt
 
   // Relations
-  testimonies       Testimony[]
-  mediaProgress     TestimonyMediaProgress[]
-  virtualTours      VirtualTour[]
-  notifications     Notification[]
-  
+  testimonies        Testimony[]
+  mediaProgress      TestimonyMediaProgress[]
+  virtualTours       VirtualTour[]
+  notifications      Notification[]
+  educationalContent EducationalContent[]
+  userProgress       UserProgress[]
+
   @@map("users")
 }
 
 model Notification {
-  id          Int      @id @default(autoincrement())
-  title       String
-  message     String?
-  type        String
-  audience    String   @default("admin") // admin | user
-  status      String   @default("unread") // unread | read
-  priority    String   @default("normal") // normal | high
-  metadata    Json?
-  userId      Int?
-  createdAt   DateTime @default(now())
-  readAt      DateTime?
+  id        Int       @id @default(autoincrement())
+  title     String
+  message   String?
+  type      String
+  audience  String    @default("admin") // admin | user
+  status    String    @default("unread") // unread | read
+  priority  String    @default("normal") // normal | high
+  metadata  Json?
+  userId    Int?
+  createdAt DateTime  @default(now())
+  readAt    DateTime?
 
-  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
-  @@map("notifications")
   @@index([audience, status])
   @@index([userId])
   @@index([type])
+  @@map("notifications")
 }
 
 model Testimony {
@@ -70,12 +72,12 @@ model Testimony {
   identityPreference String
 
   // Personal Information
-  fullName              String?
-  relationToEvent       String?  // e.g., "Survivor", "Witness", "Family Member", "Friend" 
-  location              String?
-  dateOfEventFrom       DateTime?  // Start of event date range
-  dateOfEventTo         DateTime?  // End of event date range
-  
+  fullName        String?
+  relationToEvent String? // e.g., "Survivor", "Witness", "Family Member", "Friend" 
+  location        String?
+  dateOfEventFrom DateTime? // Start of event date range
+  dateOfEventTo   DateTime? // End of event date range
+
   // Event Information
   eventTitle       String
   eventDescription String?
@@ -94,26 +96,26 @@ model Testimony {
   nextEditableAt  DateTime?
 
   // Audio (for audio type)
-  audioUrl              String?
-  audioFileName         String?
-  audioDuration         Int?    
-  
+  audioUrl      String?
+  audioFileName String?
+  audioDuration Int?
+
   // Video (for video type)
-  videoUrl              String?
-  videoFileName         String?
-  videoDuration         Int?     
-  
-  
-  images                TestimonyImage[]
-  relatives             TestimonyRelative[]
-  
+  videoUrl      String?
+  videoFileName String?
+  videoDuration Int?
+
+  images       TestimonyImage[]
+  relatives    TestimonyRelative[]
+  userProgress UserProgress[]
+
   // Consent
   agreedToTerms Boolean @default(false)
 
   // Status and metadata
-  status                String   @default("pending") 
-  isPublished           Boolean  @default(false)
-  impressions           Int      @default(0) 
+  status      String  @default("pending")
+  isPublished Boolean @default(false)
+  impressions Int     @default(0)
 
   // AI text artifacts
   transcript String?  @db.Text
@@ -506,4 +508,106 @@ model VirtualTourEffect {
   @@index([effectType])
   @@index([triggerType])
   @@map("virtual_tour_effects")
+}
+
+// ========== Education Models ==========
+
+model EducationalContent {
+  id          Int     @id @default(autoincrement())
+  title       String
+  description String?
+  content     String? @db.Text
+
+  // Type of educational material
+  type String // article, video, interactive, timeline , survivor-stories , memorials
+
+  // Media
+  imageUrl String?
+  videoUrl String?
+  duration Int? // in seconds
+
+  // Organization
+  category String? // history, prevention, reconciliation , audio
+  tags     String[]
+
+  // Status
+  status      String  @default("draft") // draft, published, archived
+  isPublished Boolean @default(false)
+
+  // Relations
+  userId       Int?
+  user         User?                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  simulations  ScenarioSimulation[]
+  userProgress UserProgress[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([type])
+  @@index([category])
+  @@index([status])
+  @@map("educational_content")
+}
+
+model ScenarioSimulation {
+  id          Int     @id @default(autoincrement())
+  title       String
+  description String?
+  scenario    String? @db.Text
+
+  // Simulation type
+  simulationType String // decision, timeline, interactive
+
+  // Media
+  backgroundImage String?
+
+  // Relations
+  educationId        Int?
+  educationalContent EducationalContent? @relation(fields: [educationId], references: [id], onDelete: Cascade)
+  userProgress       UserProgress[]
+
+  status      String  @default("draft")
+  isPublished Boolean @default(false)
+
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+
+  @@index([educationId])
+  @@map("scenario_simulations")
+}
+
+model UserProgress {
+  id          Int    @id @default(autoincrement())
+  userId      Int
+  contentType String // testimony, education, simulation
+
+  // What content
+  testimonyId  Int?
+  educationId  Int?
+  simulationId Int?
+
+  // Progress
+  progress    Float     @default(0.0) // 0.0 to 1.0
+  isCompleted Boolean   @default(false)
+  completedAt DateTime?
+
+  // User feedback
+  rating   Int? // 1-5 stars
+  feedback String? @db.Text
+
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  testimony   Testimony?          @relation(fields: [testimonyId], references: [id], onDelete: Cascade)
+  educational EducationalContent? @relation(fields: [educationId], references: [id], onDelete: Cascade)
+  simulation  ScenarioSimulation? @relation(fields: [simulationId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, testimonyId, educationId, simulationId])
+  @@index([userId])
+  @@index([contentType])
+  @@index([isCompleted])
+  @@map("user_progress")
 }
