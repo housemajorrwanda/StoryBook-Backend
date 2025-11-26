@@ -13,6 +13,8 @@ import { UploadModule } from './upload/upload.module';
 import { VirtualTourModule } from './virtual-tour/virtual-tour.module';
 import { NotificationModule } from './notification/notification.module';
 import { EducationModule } from './education/education.module';
+import { UserprogressModule } from './userprogress/userprogress.module';
+import { SimulationModule } from './simulation/simulation.module';
 
 @Module({
   imports: [
@@ -34,6 +36,8 @@ import { EducationModule } from './education/education.module';
     VirtualTourModule,
     NotificationModule,
     EducationModule,
+    UserprogressModule,
+    SimulationModule,
   ],
   controllers: [AppController],
   providers: [
