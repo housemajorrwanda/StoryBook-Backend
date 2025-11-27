@@ -1,6 +1,12 @@
 # Use Node.js 20 Alpine as base image
 FROM node:20-alpine
 
+# Install essential packages for health checks and database connectivity
+RUN apk add --no-cache \
+    curl \
+    postgresql-client \
+    netcat-openbsd
+
 # Set working directory
 WORKDIR /app
 
@@ -38,7 +44,7 @@ RUN adduser -S nestjs -u 1001
 RUN chown -R nestjs:nodejs /app
 USER nestjs
 
-# Health check
+# Health check (fixed to use the correct health endpoint)
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:3009/api/v1/health || exit 1
 
