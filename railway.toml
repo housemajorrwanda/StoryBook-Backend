@@ -3,7 +3,7 @@ builder = "nixpacks"
 
 [deploy]
 startCommand = "sh start.sh"
-"healthcheckPath": "/ping"
+"healthcheckPath": "/health"
 healthcheckTimeout = 300
 
 [service]
