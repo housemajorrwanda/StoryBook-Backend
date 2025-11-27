@@ -29,7 +29,12 @@ import {
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { EducationService } from './education.service';
 import { UploadService } from '../upload/upload.service';
-import { CreateEducationDto, ContentType, ContentCategory, ContentStatus } from './dto/create-education.dto';
+import {
+  CreateEducationDto,
+  ContentType,
+  ContentCategory,
+  ContentStatus,
+} from './dto/create-education.dto';
 import { UpdateEducationDto } from './dto/update-education.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -44,114 +49,120 @@ export class EducationController {
     private readonly uploadService: UploadService,
   ) {}
 
- @Post()
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('admin')
-@ApiBearerAuth('JWT-auth')
-@ApiOperation({ summary: 'Create educational content with files' })
-@ApiConsumes('multipart/form-data')
-@UseInterceptors(
-  FileFieldsInterceptor([
-    { name: 'image', maxCount: 1 },
-    { name: 'video', maxCount: 1 },
-  ]),
-)
-@ApiBody({
-  schema: {
-    type: 'object',
-    properties: {
-      title: { type: 'string' },
-      description: { type: 'string' },
-      content: { type: 'string' },
-      type: { type: 'string', enum: Object.values(ContentType) },
-      category: { type: 'string', enum: Object.values(ContentCategory) },
-      tags: { type: 'string', description: 'JSON array of tags' },
-      status: { type: 'string', enum: Object.values(ContentStatus) },
-      isPublished: { type: 'boolean' },
-      image: { type: 'string', format: 'binary' },
-      video: { type: 'string', format: 'binary' },
+  @Post()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Create educational content with files' })
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(
+    FileFieldsInterceptor([
+      { name: 'image', maxCount: 1 },
+      { name: 'video', maxCount: 1 },
+    ]),
+  )
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        title: { type: 'string' },
+        description: { type: 'string' },
+        content: { type: 'string' },
+        type: { type: 'string', enum: Object.values(ContentType) },
+        category: { type: 'string', enum: Object.values(ContentCategory) },
+        tags: { type: 'string', description: 'JSON array of tags' },
+        status: { type: 'string', enum: Object.values(ContentStatus) },
+        isPublished: { type: 'boolean' },
+        image: { type: 'string', format: 'binary' },
+        video: { type: 'string', format: 'binary' },
+      },
+      required: ['title', 'type'],
     },
-    required: ['title', 'type'],
-  },
-})
-@ApiResponse({
-  status: 201,
-  description: 'Educational content created successfully',
-  type: EducationResponseDto,
-})
-async create(
-  @Request() req,
-  @UploadedFiles()
-  files: {
-    image?: Express.Multer.File[];
-    video?: Express.Multer.File[];
-  },
-  @Body() body: any,
-) {
-  const userId = req.user.id;
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Educational content created successfully',
+    type: EducationResponseDto,
+  })
+  async create(
+    @Request() req,
+    @UploadedFiles()
+    files: {
+      image?: Express.Multer.File[];
+      video?: Express.Multer.File[];
+    },
+    @Body() body: any,
+  ) {
+    const userId = req.user.id;
 
-  // Parse tags if provided
-  let tags: string[] = [];
-  if (body.tags) {
-    try {
-      tags = JSON.parse(body.tags);
-    } catch {
-      tags = Array.isArray(body.tags) ? body.tags : [body.tags];
+    // Parse tags if provided
+    let tags: string[] = [];
+    if (body.tags) {
+      try {
+        tags = JSON.parse(body.tags);
+      } catch {
+        tags = Array.isArray(body.tags) ? body.tags : [body.tags];
+      }
     }
-  }
 
-  const dto: CreateEducationDto = {
-    title: body.title,
-    description: body.description,
-    content: body.content,
-    type: body.type as ContentType,
-    category: body.category as ContentCategory,
-    tags,
-    status: body.status,
-    isPublished: body.isPublished === 'true',
-  };
+    const dto: CreateEducationDto = {
+      title: body.title,
+      description: body.description,
+      content: body.content,
+      type: body.type as ContentType,
+      category: body.category as ContentCategory,
+      tags,
+      status: body.status,
+      isPublished: body.isPublished === 'true',
+    };
 
-  // Upload image if provided
-  if (files?.image?.[0]) {
-    try {
-      const uploadResult = await this.uploadService.uploadMultipleImages(files.image);
-      
-      // Check if upload was successful
-      if (uploadResult.successful.length > 0) {
-        dto.imageUrl = uploadResult.successful[0].url;
-      } else if (uploadResult.failed.length > 0) {
-        // Handle upload failure
+    // Upload image if provided
+    if (files?.image?.[0]) {
+      try {
+        const uploadResult = await this.uploadService.uploadMultipleImages(
+          files.image,
+        );
+
+        // Check if upload was successful
+        if (uploadResult.successful.length > 0) {
+          dto.imageUrl = uploadResult.successful[0].url;
+        } else if (uploadResult.failed.length > 0) {
+          // Handle upload failure
+          throw new BadRequestException(
+            `Image upload failed: ${uploadResult.failed[0].error}`,
+          );
+        }
+      } catch (error) {
+        console.error('Error uploading image:', error);
         throw new BadRequestException(
-          `Image upload failed: ${uploadResult.failed[0].error}`
+          error instanceof Error ? error.message : 'Failed to upload image',
         );
       }
-    } catch (error) {
-      console.error('Error uploading image:', error);
-      throw new BadRequestException(
-        error instanceof Error ? error.message : 'Failed to upload image'
-      );
     }
-  }
 
-  // Upload video if provided and type is video
-  if (dto.type === ContentType.VIDEO && files?.video?.[0]) {
-    try {
-      const uploadedVideo = await this.uploadService.uploadVideo(files.video[0]);
-      dto.videoUrl = uploadedVideo.url;
-      dto.duration = uploadedVideo.duration;
-    } catch (error) {
-      console.error('Error uploading video:', error);
-      throw new BadRequestException(
-        error instanceof Error ? error.message : 'Failed to upload video'
-      );
+    // Upload video if provided and type is video
+    if (dto.type === ContentType.VIDEO && files?.video?.[0]) {
+      try {
+        const uploadedVideo = await this.uploadService.uploadVideo(
+          files.video[0],
+        );
+        dto.videoUrl = uploadedVideo.url;
+        dto.duration = uploadedVideo.duration;
+      } catch (error) {
+        console.error('Error uploading video:', error);
+        throw new BadRequestException(
+          error instanceof Error ? error.message : 'Failed to upload video',
+        );
+      }
     }
-  }
 
-  return this.educationService.create(userId, dto);
-}
+    return this.educationService.create(userId, dto);
+  }
 
   @Get()
-  @ApiOperation({ summary: 'Get all educational content with pagination and filters' })
+  @ApiOperation({
+    summary: 'Get all educational content with pagination and filters',
+  })
   @ApiQuery({ name: 'skip', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'search', required: false, type: String })
@@ -211,16 +222,18 @@ async create(
 
   @Get('popular')
   @ApiOperation({ summary: 'Get popular educational content (most viewed)' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Number of items to return' })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Number of items to return',
+  })
   @ApiResponse({
     status: 200,
     description: 'List of popular educational content',
     type: [EducationResponseDto],
   })
-  async getPopular(
-    @Request() req,
-    @Query('limit') limit?: string,
-  ) {
+  async getPopular(@Request() req, @Query('limit') limit?: string) {
     const currentUserId = req.user?.id;
     const limitNum = limit ? parseInt(limit, 10) : 10;
     return this.educationService.getPopularContent(limitNum, currentUserId);
@@ -238,8 +251,6 @@ async create(
   async getStatistics() {
     return this.educationService.getContentStatistics();
   }
-  
-
 
   @Get('category/:category')
   @ApiOperation({ summary: 'Get educational content by category' })

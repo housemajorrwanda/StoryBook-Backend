@@ -25,7 +25,6 @@ import { CreateEffectDto } from './dto/create-effect.dto';
 import { UpdateEffectDto } from './dto/update-effect.dto';
 import { ReorderDto } from './dto/reorder.dto';
 
-
 @ApiTags('Virtual Tour Effects')
 @Controller('virtual-tours/:tourId/effects')
 export class EffectController {
@@ -47,7 +46,11 @@ export class EffectController {
     @Body() createEffectDto: CreateEffectDto,
   ) {
     const userId = req.user.id as number;
-    return this.virtualTourService.createEffect(virtualTourId, userId, createEffectDto);
+    return this.virtualTourService.createEffect(
+      virtualTourId,
+      userId,
+      createEffectDto,
+    );
   }
 
   @Get()
@@ -127,6 +130,10 @@ export class EffectController {
     @Body() reorderDto: ReorderDto,
   ) {
     const userId = req.user.id as number;
-    return this.virtualTourService.reorderEffects(virtualTourId, userId, reorderDto.ids);
+    return this.virtualTourService.reorderEffects(
+      virtualTourId,
+      userId,
+      reorderDto.ids,
+    );
   }
 }

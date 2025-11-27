@@ -9,10 +9,10 @@ import {
   UseGuards,
   Request,
   Query,
-  ParseIntPipe,
   HttpCode,
   HttpStatus,
   UnauthorizedException,
+  NotFoundException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -24,6 +24,7 @@ import {
 } from '@nestjs/swagger';
 import { TestimonyService } from './testimony.service';
 import { UploadService } from '../upload/upload.service';
+import { TestimonyConnectionService } from '../ai-processing/testimony-connection.service';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { UseInterceptors, UploadedFiles } from '@nestjs/common';
 import { ApiBody, ApiConsumes } from '@nestjs/swagger';
@@ -41,6 +42,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import type { User } from '../user/user.types';
+import { TestimonyIdPipe } from '../common/pipes/testimony-id.pipe';
 
 @ApiTags('Testimonies')
 @Controller('testimonies')
@@ -48,6 +50,7 @@ export class TestimonyController {
   constructor(
     private readonly testimonyService: TestimonyService,
     private readonly uploadService: UploadService,
+    private readonly connectionService: TestimonyConnectionService,
   ) {}
 
   private getAuthenticatedUserId(req: {
@@ -551,9 +554,14 @@ export class TestimonyController {
   @Get(':id')
   @ApiOperation({
     summary:
-      'Get a single testimony by ID. Includes resume progress if logged in.',
+      'Get a single testimony by ID or slug. Supports formats: "1" or "1-testimony-title". Includes resume progress if logged in.',
   })
-  @ApiParam({ name: 'id', type: Number })
+  @ApiParam({
+    name: 'id',
+    type: String,
+    description:
+      'Testimony ID or slug format (e.g., "1" or "1-voices-that-refuse-silence")',
+  })
   @ApiQuery({
     name: 'progress',
     required: false,
@@ -571,7 +579,7 @@ export class TestimonyController {
     description: 'Testimony not found',
   })
   async findOne(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', TestimonyIdPipe) id: number,
     @Request() req: { user?: User & { role?: string; fullName?: string } },
     @Query('progress') progress?: string,
   ) {
@@ -601,7 +609,7 @@ export class TestimonyController {
   })
   @ApiResponse({ status: 404, description: 'Testimony not found' })
   async getComparison(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', TestimonyIdPipe) id: number,
     @Request() req: { user: User & { role?: string; fullName?: string } },
   ) {
     const userId = this.getAuthenticatedUserId(req);
@@ -610,8 +618,16 @@ export class TestimonyController {
   }
 
   @Get(':id/related')
-  @ApiOperation({ summary: 'Get related testimonies (stub for AI linking)' })
-  @ApiParam({ name: 'id', type: Number })
+  @ApiOperation({
+    summary: 'Get related testimonies based on AI connections',
+    description:
+      'Returns testimonies connected to this one via semantic similarity, shared events, locations, people, or timeframes. The ID is the testimony ID from the URL parameter.',
+  })
+  @ApiParam({
+    name: 'id',
+    type: Number,
+    description: 'The testimony ID to find related testimonies for',
+  })
   @ApiQuery({
     name: 'limit',
     required: false,
@@ -620,18 +636,71 @@ export class TestimonyController {
   })
   @ApiResponse({
     status: 200,
-    description: 'Related testimonies',
+    description: 'Related testimonies sorted by connection strength',
     schema: {
       type: 'array',
       items: { $ref: '#/components/schemas/TestimonyResponseDto' },
     },
   })
   async getRelated(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', TestimonyIdPipe) id: number,
     @Query('limit') limit?: string,
   ) {
     const take = limit ? parseInt(limit, 10) : 5;
     return this.testimonyService.getRelated(id, take);
+  }
+
+  @Post(':id/discover-connections')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  @ApiBearerAuth('JWT-auth')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: '[Admin] Manually trigger connection discovery for a testimony',
+    description:
+      'Forces the system to discover and create connections between this testimony and others. Useful for re-analyzing connections after updates or when AI services become available.',
+  })
+  @ApiParam({
+    name: 'id',
+    type: Number,
+    description: 'The testimony ID to discover connections for',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Connection discovery started',
+    schema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string' },
+        testimonyId: { type: 'number' },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Admin access required',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Testimony not found',
+  })
+  async discoverConnections(@Param('id', TestimonyIdPipe) id: number) {
+    // Verify testimony exists
+    try {
+      await this.testimonyService.findOne(id);
+    } catch {
+      throw new NotFoundException('Testimony not found');
+    }
+
+    // Trigger connection discovery (non-blocking)
+    void this.connectionService.discoverConnections(id).catch((error) => {
+      console.error(`Connection discovery failed for testimony ${id}:`, error);
+    });
+
+    return {
+      message: 'Connection discovery started. This may take a few moments.',
+      testimonyId: id,
+    };
   }
 
   @Patch(':id')
@@ -661,7 +730,7 @@ export class TestimonyController {
     description: 'Testimony not found',
   })
   async update(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', TestimonyIdPipe) id: number,
     @Request() req: { user: User & { role?: string; fullName?: string } },
     @Body() updateTestimonyDto: UpdateTestimonyDto,
   ) {
@@ -692,7 +761,7 @@ export class TestimonyController {
     description: 'Testimony not found',
   })
   async remove(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', TestimonyIdPipe) id: number,
     @Request() req: { user: User & { role?: string; fullName?: string } },
   ) {
     const userId = this.getAuthenticatedUserId(req);
@@ -730,7 +799,7 @@ export class TestimonyController {
     description: 'Testimony not found',
   })
   async updateStatus(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', TestimonyIdPipe) id: number,
     @Request() req: { user: User & { role?: string; fullName?: string } },
     @Body() updateStatusDto: UpdateStatusDto,
   ) {

@@ -25,7 +25,6 @@ import { CreateHotspotDto } from './dto/create-hotspot.dto';
 import { UpdateHotspotDto } from './dto/update-hotspot.dto';
 import { ReorderDto } from './dto/reorder.dto';
 
-
 @ApiTags('Virtual Tour Hotspots')
 @Controller('virtual-tours/:tourId/hotspots')
 export class HotspotController {
@@ -47,7 +46,11 @@ export class HotspotController {
     @Body() createHotspotDto: CreateHotspotDto,
   ) {
     const userId = req.user.id as number;
-    return this.virtualTourService.createHotspot(virtualTourId, userId, createHotspotDto);
+    return this.virtualTourService.createHotspot(
+      virtualTourId,
+      userId,
+      createHotspotDto,
+    );
   }
 
   @Get()
@@ -127,6 +130,10 @@ export class HotspotController {
     @Body() reorderDto: ReorderDto,
   ) {
     const userId = req.user.id as number;
-    return this.virtualTourService.reorderHotspots(virtualTourId, userId, reorderDto.ids);
+    return this.virtualTourService.reorderHotspots(
+      virtualTourId,
+      userId,
+      reorderDto.ids,
+    );
   }
 }

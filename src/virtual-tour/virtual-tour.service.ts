@@ -8,7 +8,11 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateVirtualTourDto, TourType, TourStatus } from './dto/create-virtual-tour.dto';
+import {
+  CreateVirtualTourDto,
+  TourType,
+  TourStatus,
+} from './dto/create-virtual-tour.dto';
 import { UpdateVirtualTourDto } from './dto/update-virtual-tour.dto';
 import { CreateHotspotDto } from './dto/create-hotspot.dto';
 import { UpdateHotspotDto } from './dto/update-hotspot.dto';
@@ -39,13 +43,18 @@ export interface PaginatedResult<T> {
 
 @Injectable()
 export class VirtualTourService {
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
 
-  private handlePrismaError(error: any, entity: string = 'Virtual tour'): never {
+  private handlePrismaError(
+    error: any,
+    entity: string = 'Virtual tour',
+  ): never {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       switch (error.code) {
         case 'P2002':
-          throw new ConflictException(`${entity} with this data already exists`);
+          throw new ConflictException(
+            `${entity} with this data already exists`,
+          );
         case 'P2003':
           throw new BadRequestException('Invalid foreign key relationship');
         case 'P2025':
@@ -57,34 +66,47 @@ export class VirtualTourService {
     throw new InternalServerErrorException('An unexpected error occurred');
   }
 
-  private validateTourUrls(dto: Partial<CreateVirtualTourDto> | Partial<UpdateVirtualTourDto>): void {
+  private validateTourUrls(
+    dto: Partial<CreateVirtualTourDto> | Partial<UpdateVirtualTourDto>,
+  ): void {
     if (dto.tourType) {
       switch (dto.tourType) {
         case TourType.EMBED:
           if (!dto.embedUrl) {
-            throw new BadRequestException('embedUrl is required for embed tours');
+            throw new BadRequestException(
+              'embedUrl is required for embed tours',
+            );
           }
           break;
         case TourType.IMAGE_360:
           if (!dto.image360Url) {
-            throw new BadRequestException('image360Url is required for 360 image tours');
+            throw new BadRequestException(
+              'image360Url is required for 360 image tours',
+            );
           }
           break;
         case TourType.VIDEO_360:
           if (!dto.video360Url) {
-            throw new BadRequestException('video360Url is required for 360 video tours');
+            throw new BadRequestException(
+              'video360Url is required for 360 video tours',
+            );
           }
           break;
         case TourType.MODEL_3D:
           if (!dto.model3dUrl) {
-            throw new BadRequestException('model3dUrl is required for 3D model tours');
+            throw new BadRequestException(
+              'model3dUrl is required for 3D model tours',
+            );
           }
           break;
       }
     }
   }
 
-  private async verifyTourOwnership(tourId: number, userId: number): Promise<void> {
+  private async verifyTourOwnership(
+    tourId: number,
+    userId: number,
+  ): Promise<void> {
     const tour = await this.prisma.virtualTour.findUnique({
       where: { id: tourId },
       select: { userId: true },
@@ -95,7 +117,9 @@ export class VirtualTourService {
     }
 
     if (tour.userId !== userId) {
-      throw new ForbiddenException('You can only modify your own virtual tours');
+      throw new ForbiddenException(
+        'You can only modify your own virtual tours',
+      );
     }
   }
 
@@ -286,7 +310,9 @@ export class VirtualTourService {
     }
   }
 
-  async findAll(filters: VirtualTourFilters = {}): Promise<PaginatedResult<any>> {
+  async findAll(
+    filters: VirtualTourFilters = {},
+  ): Promise<PaginatedResult<any>> {
     try {
       const {
         skip = 0,
@@ -368,7 +394,11 @@ export class VirtualTourService {
     }
   }
 
-  async update(id: number, userId: number, updateVirtualTourDto: UpdateVirtualTourDto) {
+  async update(
+    id: number,
+    userId: number,
+    updateVirtualTourDto: UpdateVirtualTourDto,
+  ) {
     try {
       await this.verifyTourOwnership(id, userId);
 
@@ -411,7 +441,11 @@ export class VirtualTourService {
 
       return virtualTour;
     } catch (error) {
-      if (error instanceof NotFoundException || error instanceof ForbiddenException || error instanceof BadRequestException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof ForbiddenException ||
+        error instanceof BadRequestException
+      ) {
         throw error;
       }
       this.handlePrismaError(error);
@@ -428,7 +462,10 @@ export class VirtualTourService {
 
       return { message: 'Virtual tour deleted successfully' };
     } catch (error) {
-      if (error instanceof NotFoundException || error instanceof ForbiddenException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof ForbiddenException
+      ) {
         throw error;
       }
       this.handlePrismaError(error);
@@ -453,14 +490,20 @@ export class VirtualTourService {
 
       return virtualTour;
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
         throw new NotFoundException('Virtual tour not found');
       }
       this.handlePrismaError(error);
     }
   }
 
-  async getUserTours(userId: number, filters: Omit<VirtualTourFilters, 'userId'> = {}) {
+  async getUserTours(
+    userId: number,
+    filters: Omit<VirtualTourFilters, 'userId'> = {},
+  ) {
     return this.findAll({
       ...filters,
       userId,
@@ -490,7 +533,11 @@ export class VirtualTourService {
 
   // ==================== HOTSPOT CRUD OPERATIONS ====================
 
-  async createHotspot(virtualTourId: number, userId: number, createHotspotDto: CreateHotspotDto) {
+  async createHotspot(
+    virtualTourId: number,
+    userId: number,
+    createHotspotDto: CreateHotspotDto,
+  ) {
     try {
       await this.verifyTourOwnership(virtualTourId, userId);
 
@@ -505,7 +552,10 @@ export class VirtualTourService {
 
       return hotspot;
     } catch (error) {
-      if (error instanceof NotFoundException || error instanceof ForbiddenException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof ForbiddenException
+      ) {
         throw error;
       }
       this.handlePrismaError(error, 'Hotspot');
@@ -548,7 +598,11 @@ export class VirtualTourService {
     }
   }
 
-  async updateHotspot(id: number, userId: number, updateHotspotDto: UpdateHotspotDto) {
+  async updateHotspot(
+    id: number,
+    userId: number,
+    updateHotspotDto: UpdateHotspotDto,
+  ) {
     try {
       const hotspot = await this.prisma.virtualTourHotspot.findUnique({
         where: { id },
@@ -560,7 +614,9 @@ export class VirtualTourService {
       }
 
       if (hotspot.virtualTour.userId !== userId) {
-        throw new ForbiddenException('You can only update hotspots in your own virtual tours');
+        throw new ForbiddenException(
+          'You can only update hotspots in your own virtual tours',
+        );
       }
 
       const updatedHotspot = await this.prisma.virtualTourHotspot.update({
@@ -571,7 +627,10 @@ export class VirtualTourService {
 
       return updatedHotspot;
     } catch (error) {
-      if (error instanceof NotFoundException || error instanceof ForbiddenException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof ForbiddenException
+      ) {
         throw error;
       }
       this.handlePrismaError(error, 'Hotspot');
@@ -590,7 +649,9 @@ export class VirtualTourService {
       }
 
       if (hotspot.virtualTour.userId !== userId) {
-        throw new ForbiddenException('You can only delete hotspots from your own virtual tours');
+        throw new ForbiddenException(
+          'You can only delete hotspots from your own virtual tours',
+        );
       }
 
       await this.prisma.virtualTourHotspot.delete({
@@ -599,7 +660,10 @@ export class VirtualTourService {
 
       return { message: 'Hotspot deleted successfully' };
     } catch (error) {
-      if (error instanceof NotFoundException || error instanceof ForbiddenException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof ForbiddenException
+      ) {
         throw error;
       }
       this.handlePrismaError(error, 'Hotspot');
@@ -608,7 +672,11 @@ export class VirtualTourService {
 
   // ==================== AUDIO REGION CRUD OPERATIONS ====================
 
-  async createAudioRegion(virtualTourId: number, userId: number, createAudioRegionDto: CreateAudioRegionDto) {
+  async createAudioRegion(
+    virtualTourId: number,
+    userId: number,
+    createAudioRegionDto: CreateAudioRegionDto,
+  ) {
     try {
       await this.verifyTourOwnership(virtualTourId, userId);
 
@@ -623,7 +691,10 @@ export class VirtualTourService {
 
       return audioRegion;
     } catch (error) {
-      if (error instanceof NotFoundException || error instanceof ForbiddenException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof ForbiddenException
+      ) {
         throw error;
       }
       this.handlePrismaError(error, 'Audio region');
@@ -666,7 +737,11 @@ export class VirtualTourService {
     }
   }
 
-  async updateAudioRegion(id: number, userId: number, updateAudioRegionDto: UpdateAudioRegionDto) {
+  async updateAudioRegion(
+    id: number,
+    userId: number,
+    updateAudioRegionDto: UpdateAudioRegionDto,
+  ) {
     try {
       const audioRegion = await this.prisma.virtualTourAudioRegion.findUnique({
         where: { id },
@@ -678,18 +753,24 @@ export class VirtualTourService {
       }
 
       if (audioRegion.virtualTour.userId !== userId) {
-        throw new ForbiddenException('You can only update audio regions in your own virtual tours');
+        throw new ForbiddenException(
+          'You can only update audio regions in your own virtual tours',
+        );
       }
 
-      const updatedAudioRegion = await this.prisma.virtualTourAudioRegion.update({
-        where: { id },
-        data: updateAudioRegionDto,
-        include: this.getAudioRegionIncludeFields(),
-      });
+      const updatedAudioRegion =
+        await this.prisma.virtualTourAudioRegion.update({
+          where: { id },
+          data: updateAudioRegionDto,
+          include: this.getAudioRegionIncludeFields(),
+        });
 
       return updatedAudioRegion;
     } catch (error) {
-      if (error instanceof NotFoundException || error instanceof ForbiddenException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof ForbiddenException
+      ) {
         throw error;
       }
       this.handlePrismaError(error, 'Audio region');
@@ -708,7 +789,9 @@ export class VirtualTourService {
       }
 
       if (audioRegion.virtualTour.userId !== userId) {
-        throw new ForbiddenException('You can only delete audio regions from your own virtual tours');
+        throw new ForbiddenException(
+          'You can only delete audio regions from your own virtual tours',
+        );
       }
 
       await this.prisma.virtualTourAudioRegion.delete({
@@ -717,7 +800,10 @@ export class VirtualTourService {
 
       return { message: 'Audio region deleted successfully' };
     } catch (error) {
-      if (error instanceof NotFoundException || error instanceof ForbiddenException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof ForbiddenException
+      ) {
         throw error;
       }
       this.handlePrismaError(error, 'Audio region');
@@ -726,7 +812,11 @@ export class VirtualTourService {
 
   // ==================== EFFECT CRUD OPERATIONS ====================
 
-  async createEffect(virtualTourId: number, userId: number, createEffectDto: CreateEffectDto) {
+  async createEffect(
+    virtualTourId: number,
+    userId: number,
+    createEffectDto: CreateEffectDto,
+  ) {
     try {
       await this.verifyTourOwnership(virtualTourId, userId);
 
@@ -741,7 +831,10 @@ export class VirtualTourService {
 
       return effect;
     } catch (error) {
-      if (error instanceof NotFoundException || error instanceof ForbiddenException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof ForbiddenException
+      ) {
         throw error;
       }
       this.handlePrismaError(error, 'Effect');
@@ -784,7 +877,11 @@ export class VirtualTourService {
     }
   }
 
-  async updateEffect(id: number, userId: number, updateEffectDto: UpdateEffectDto) {
+  async updateEffect(
+    id: number,
+    userId: number,
+    updateEffectDto: UpdateEffectDto,
+  ) {
     try {
       const effect = await this.prisma.virtualTourEffect.findUnique({
         where: { id },
@@ -796,7 +893,9 @@ export class VirtualTourService {
       }
 
       if (effect.virtualTour.userId !== userId) {
-        throw new ForbiddenException('You can only update effects in your own virtual tours');
+        throw new ForbiddenException(
+          'You can only update effects in your own virtual tours',
+        );
       }
 
       const updatedEffect = await this.prisma.virtualTourEffect.update({
@@ -807,7 +906,10 @@ export class VirtualTourService {
 
       return updatedEffect;
     } catch (error) {
-      if (error instanceof NotFoundException || error instanceof ForbiddenException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof ForbiddenException
+      ) {
         throw error;
       }
       this.handlePrismaError(error, 'Effect');
@@ -826,7 +928,9 @@ export class VirtualTourService {
       }
 
       if (effect.virtualTour.userId !== userId) {
-        throw new ForbiddenException('You can only delete effects from your own virtual tours');
+        throw new ForbiddenException(
+          'You can only delete effects from your own virtual tours',
+        );
       }
 
       await this.prisma.virtualTourEffect.delete({
@@ -835,7 +939,10 @@ export class VirtualTourService {
 
       return { message: 'Effect deleted successfully' };
     } catch (error) {
-      if (error instanceof NotFoundException || error instanceof ForbiddenException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof ForbiddenException
+      ) {
         throw error;
       }
       this.handlePrismaError(error, 'Effect');
@@ -844,7 +951,11 @@ export class VirtualTourService {
 
   // ==================== BULK REORDERING OPERATIONS ====================
 
-  async reorderHotspots(virtualTourId: number, userId: number, hotspotIds: number[]) {
+  async reorderHotspots(
+    virtualTourId: number,
+    userId: number,
+    hotspotIds: number[],
+  ) {
     try {
       await this.verifyTourOwnership(virtualTourId, userId);
 
@@ -852,21 +963,28 @@ export class VirtualTourService {
         this.prisma.virtualTourHotspot.update({
           where: { id: hotspotId },
           data: { order: index },
-        })
+        }),
       );
 
       await this.prisma.$transaction(updates);
 
       return { message: 'Hotspots reordered successfully' };
     } catch (error) {
-      if (error instanceof NotFoundException || error instanceof ForbiddenException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof ForbiddenException
+      ) {
         throw error;
       }
       this.handlePrismaError(error);
     }
   }
 
-  async reorderAudioRegions(virtualTourId: number, userId: number, audioRegionIds: number[]) {
+  async reorderAudioRegions(
+    virtualTourId: number,
+    userId: number,
+    audioRegionIds: number[],
+  ) {
     try {
       await this.verifyTourOwnership(virtualTourId, userId);
 
@@ -874,21 +992,28 @@ export class VirtualTourService {
         this.prisma.virtualTourAudioRegion.update({
           where: { id: audioRegionId },
           data: { order: index },
-        })
+        }),
       );
 
       await this.prisma.$transaction(updates);
 
       return { message: 'Audio regions reordered successfully' };
     } catch (error) {
-      if (error instanceof NotFoundException || error instanceof ForbiddenException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof ForbiddenException
+      ) {
         throw error;
       }
       this.handlePrismaError(error);
     }
   }
 
-  async reorderEffects(virtualTourId: number, userId: number, effectIds: number[]) {
+  async reorderEffects(
+    virtualTourId: number,
+    userId: number,
+    effectIds: number[],
+  ) {
     try {
       await this.verifyTourOwnership(virtualTourId, userId);
 
@@ -896,14 +1021,17 @@ export class VirtualTourService {
         this.prisma.virtualTourEffect.update({
           where: { id: effectId },
           data: { order: index },
-        })
+        }),
       );
 
       await this.prisma.$transaction(updates);
 
       return { message: 'Effects reordered successfully' };
     } catch (error) {
-      if (error instanceof NotFoundException || error instanceof ForbiddenException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof ForbiddenException
+      ) {
         throw error;
       }
       this.handlePrismaError(error);

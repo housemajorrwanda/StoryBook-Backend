@@ -7,13 +7,10 @@ import { PrismaService } from '../prisma/prisma.service';
 import type { Notification } from '@prisma/client';
 import {
   CreateNotificationInput,
-  NOTIFICATION_PRIORITIES,
-  NOTIFICATION_STATUS,
   NotificationAudience,
-  NotificationPriority,
-  NotificationType,
 } from './notification.types';
 import { NotificationQueryDto } from './dto/notification-query.dto';
+import { generateTestimonyUrl } from '../common/utils/slug.util';
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
@@ -33,7 +30,8 @@ export class NotificationService {
           type: input.type,
           audience: input.audience ?? 'admin',
           priority: input.priority ?? 'normal',
-          metadata: input.metadata as any,
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+          metadata: (input.metadata ?? undefined) as any,
           userId: input.userId,
         },
       });
@@ -61,6 +59,16 @@ export class NotificationService {
       return;
     }
 
+    // Fetch testimony to get title for URL generation
+    const testimony = await this.prisma.testimony.findUnique({
+      where: { id: params.testimonyId },
+      select: { id: true, eventTitle: true },
+    });
+
+    const url = testimony
+      ? generateTestimonyUrl(testimony.id, testimony.eventTitle)
+      : null;
+
     await this.createAdminNotification({
       type: 'testimony_submitted',
       title: 'New testimony submitted',
@@ -69,6 +77,7 @@ export class NotificationService {
       metadata: {
         testimonyId: params.testimonyId,
         submissionType: params.submissionType,
+        url,
       },
     });
   }
@@ -79,6 +88,16 @@ export class NotificationService {
     adminId: number;
     feedback?: string;
   }): Promise<void> {
+    // Fetch testimony to get title for URL generation
+    const testimony = await this.prisma.testimony.findUnique({
+      where: { id: params.testimonyId },
+      select: { id: true, eventTitle: true },
+    });
+
+    const url = testimony
+      ? generateTestimonyUrl(testimony.id, testimony.eventTitle)
+      : null;
+
     await this.createAdminNotification({
       type: 'feedback_resolved',
       title: `Feedback resolved for testimony #${params.testimonyId}`,
@@ -87,6 +106,7 @@ export class NotificationService {
         testimonyId: params.testimonyId,
         status: params.status,
         feedback: params.feedback,
+        url,
       },
     });
   }
@@ -96,6 +116,25 @@ export class NotificationService {
     relatedTestimonyId: number;
     similarityScore?: number;
   }): Promise<void> {
+    // Fetch testimonies to get titles for URL generation
+    const [testimony, relatedTestimony] = await Promise.all([
+      this.prisma.testimony.findUnique({
+        where: { id: params.testimonyId },
+        select: { id: true, eventTitle: true },
+      }),
+      this.prisma.testimony.findUnique({
+        where: { id: params.relatedTestimonyId },
+        select: { id: true, eventTitle: true },
+      }),
+    ]);
+
+    const url = testimony
+      ? generateTestimonyUrl(testimony.id, testimony.eventTitle)
+      : null;
+    const relatedUrl = relatedTestimony
+      ? generateTestimonyUrl(relatedTestimony.id, relatedTestimony.eventTitle)
+      : null;
+
     await this.createAdminNotification({
       type: 'ai_connection',
       title: 'AI found a potential connection',
@@ -105,6 +144,8 @@ export class NotificationService {
         testimonyId: params.testimonyId,
         relatedTestimonyId: params.relatedTestimonyId,
         similarityScore: params.similarityScore,
+        url, // URL to the main testimony
+        relatedUrl, // URL to the related testimony
       },
     });
   }
@@ -199,4 +240,3 @@ export class NotificationService {
     }
   }
 }
-

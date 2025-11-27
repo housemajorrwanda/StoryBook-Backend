@@ -9,7 +9,7 @@ import { EffectController } from './effect.controller';
 
 @Module({
   imports: [PrismaModule, UploadModule],
-    controllers: [
+  controllers: [
     VirtualTourController,
     HotspotController,
     AudioRegionController,

@@ -23,4 +23,3 @@ export interface CreateNotificationInput {
   metadata?: Record<string, unknown>;
   userId?: number;
 }
-

@@ -1,11 +1,4 @@
-import {
-  IsIn,
-  IsInt,
-  IsOptional,
-  IsString,
-  Max,
-  Min,
-} from 'class-validator';
+import { IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 
 export class NotificationQueryDto {
   @IsOptional()
@@ -37,4 +30,3 @@ export class NotificationQueryDto {
   @IsString()
   search?: string;
 }
-

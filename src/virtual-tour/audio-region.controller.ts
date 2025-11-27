@@ -35,7 +35,10 @@ export class AudioRegionController {
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Create a new audio region for a virtual tour' })
   @ApiParam({ name: 'tourId', type: Number, description: 'Virtual tour ID' })
-  @ApiResponse({ status: 201, description: 'Audio region created successfully' })
+  @ApiResponse({
+    status: 201,
+    description: 'Audio region created successfully',
+  })
   @ApiResponse({ status: 400, description: 'Bad request' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
@@ -46,23 +49,39 @@ export class AudioRegionController {
     @Body() createAudioRegionDto: CreateAudioRegionDto,
   ) {
     const userId = req.user.id as number;
-    return this.virtualTourService.createAudioRegion(virtualTourId, userId, createAudioRegionDto);
+    return this.virtualTourService.createAudioRegion(
+      virtualTourId,
+      userId,
+      createAudioRegionDto,
+    );
   }
 
   @Get()
   @ApiOperation({ summary: 'Get all audio regions for a virtual tour' })
   @ApiParam({ name: 'tourId', type: Number, description: 'Virtual tour ID' })
-  @ApiResponse({ status: 200, description: 'Audio regions retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Audio regions retrieved successfully',
+  })
   @ApiResponse({ status: 404, description: 'Virtual tour not found' })
-  async getTourAudioRegions(@Param('tourId', ParseIntPipe) virtualTourId: number) {
+  async getTourAudioRegions(
+    @Param('tourId', ParseIntPipe) virtualTourId: number,
+  ) {
     return this.virtualTourService.getTourAudioRegions(virtualTourId);
   }
 
   @Get(':audioRegionId')
   @ApiOperation({ summary: 'Get a specific audio region' })
   @ApiParam({ name: 'tourId', type: Number, description: 'Virtual tour ID' })
-  @ApiParam({ name: 'audioRegionId', type: Number, description: 'Audio region ID' })
-  @ApiResponse({ status: 200, description: 'Audio region retrieved successfully' })
+  @ApiParam({
+    name: 'audioRegionId',
+    type: Number,
+    description: 'Audio region ID',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Audio region retrieved successfully',
+  })
   @ApiResponse({ status: 404, description: 'Audio region not found' })
   async getAudioRegion(
     @Param('tourId', ParseIntPipe) virtualTourId: number,
@@ -76,8 +95,15 @@ export class AudioRegionController {
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Update an audio region' })
   @ApiParam({ name: 'tourId', type: Number, description: 'Virtual tour ID' })
-  @ApiParam({ name: 'audioRegionId', type: Number, description: 'Audio region ID' })
-  @ApiResponse({ status: 200, description: 'Audio region updated successfully' })
+  @ApiParam({
+    name: 'audioRegionId',
+    type: Number,
+    description: 'Audio region ID',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Audio region updated successfully',
+  })
   @ApiResponse({ status: 400, description: 'Bad request' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
@@ -88,7 +114,11 @@ export class AudioRegionController {
     @Body() updateAudioRegionDto: UpdateAudioRegionDto,
   ) {
     const userId = req.user.id as number;
-    return this.virtualTourService.updateAudioRegion(id, userId, updateAudioRegionDto);
+    return this.virtualTourService.updateAudioRegion(
+      id,
+      userId,
+      updateAudioRegionDto,
+    );
   }
 
   @Delete(':audioRegionId')
@@ -97,8 +127,15 @@ export class AudioRegionController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete an audio region' })
   @ApiParam({ name: 'tourId', type: Number, description: 'Virtual tour ID' })
-  @ApiParam({ name: 'audioRegionId', type: Number, description: 'Audio region ID' })
-  @ApiResponse({ status: 204, description: 'Audio region deleted successfully' })
+  @ApiParam({
+    name: 'audioRegionId',
+    type: Number,
+    description: 'Audio region ID',
+  })
+  @ApiResponse({
+    status: 204,
+    description: 'Audio region deleted successfully',
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
   @ApiResponse({ status: 404, description: 'Audio region not found' })
@@ -115,7 +152,10 @@ export class AudioRegionController {
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Reorder audio regions for a virtual tour' })
   @ApiParam({ name: 'tourId', type: Number, description: 'Virtual tour ID' })
-  @ApiResponse({ status: 200, description: 'Audio regions reordered successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Audio regions reordered successfully',
+  })
   @ApiResponse({ status: 400, description: 'Bad request' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
@@ -126,6 +166,10 @@ export class AudioRegionController {
     @Body() reorderDto: ReorderDto,
   ) {
     const userId = req.user.id as number;
-    return this.virtualTourService.reorderAudioRegions(virtualTourId, userId, reorderDto.ids);
+    return this.virtualTourService.reorderAudioRegions(
+      virtualTourId,
+      userId,
+      reorderDto.ids,
+    );
   }
 }

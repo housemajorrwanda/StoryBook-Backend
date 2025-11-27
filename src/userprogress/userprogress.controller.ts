@@ -1,4 +1,3 @@
-
 import {
   Controller,
   Get,
@@ -25,7 +24,10 @@ import {
 import { UserProgressService } from './userprogress.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { UserProgressResponseDto } from './dto/response-userprogress.dto';
-import { CreateUserprogressDto, ProgressContentType } from './dto/create-userprogress.dto';
+import {
+  CreateUserprogressDto,
+  ProgressContentType,
+} from './dto/create-userprogress.dto';
 import { UpdateUserProgressDto } from './dto/update-userprogress.dto';
 
 @ApiTags('User Progress')
@@ -48,9 +50,10 @@ export class UserProgressController {
   }
 
   @Post('update-or-create')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Update existing progress or create new if not exists',
-    description: 'Useful for tracking progress without checking if record exists'
+    description:
+      'Useful for tracking progress without checking if record exists',
   })
   @ApiResponse({
     status: 200,
@@ -117,7 +120,11 @@ export class UserProgressController {
     @Param('contentId', ParseIntPipe) contentId: number,
   ) {
     const userId = req.user.id;
-    return this.userProgressService.findProgressForContent(userId, contentType, contentId);
+    return this.userProgressService.findProgressForContent(
+      userId,
+      contentType,
+      contentId,
+    );
   }
 
   @Get(':id')
@@ -180,7 +187,7 @@ export class UserProgressController {
     @Body() body?: { rating?: number; feedback?: string },
   ) {
     const userId = req.user.id;
-    
+
     const dto: CreateUserprogressDto = {
       contentType,
       progress: 1.0,
@@ -217,7 +224,7 @@ export class UserProgressController {
     @Body() body: { rating: number; feedback?: string },
   ) {
     const userId = req.user.id;
-    
+
     const dto: CreateUserprogressDto = {
       contentType,
       rating: body.rating,

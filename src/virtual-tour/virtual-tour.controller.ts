@@ -28,7 +28,11 @@ import {
   ApiBody,
 } from '@nestjs/swagger';
 import { VirtualTourService } from './virtual-tour.service';
-import { CreateVirtualTourDto, TourStatus, TourType } from './dto/create-virtual-tour.dto';
+import {
+  CreateVirtualTourDto,
+  TourStatus,
+  TourType,
+} from './dto/create-virtual-tour.dto';
 import { UpdateVirtualTourDto } from './dto/update-virtual-tour.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -70,7 +74,8 @@ export class VirtualTourController {
     ]),
   )
   @ApiOperation({
-    summary: 'Create a new virtual tour with optional nested elements (Admin only)',
+    summary:
+      'Create a new virtual tour with optional nested elements (Admin only)',
     description:
       'Create virtual tour with hotspots, audio regions, and effects. Accepts multipart/form-data with files or application/json with URLs.',
   })
@@ -79,15 +84,25 @@ export class VirtualTourController {
       type: 'object',
       properties: {
         title: { type: 'string', example: 'Museum Virtual Tour' },
-        description: { type: 'string', example: 'Explore our museum collection' },
+        description: {
+          type: 'string',
+          example: 'Explore our museum collection',
+        },
         location: { type: 'string', example: 'National Museum, City Center' },
         tourType: {
           type: 'string',
           enum: ['embed', '360_image', '360_video', '3d_model'],
           example: '360_image',
         },
-        embedUrl: { type: 'string', example: 'https://matterport.com/tour/123' },
-        status: { type: 'string', enum: ['draft', 'published', 'archived'], default: 'draft' },
+        embedUrl: {
+          type: 'string',
+          example: 'https://matterport.com/tour/123',
+        },
+        status: {
+          type: 'string',
+          enum: ['draft', 'published', 'archived'],
+          default: 'draft',
+        },
         isPublished: { type: 'boolean', default: false },
         tourFile: {
           type: 'string',
@@ -170,7 +185,10 @@ export class VirtualTourController {
   })
   @ApiResponse({ status: 400, description: 'Bad request - validation failed' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Admin access required' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Admin access required',
+  })
   async create(
     @Request() req,
     @UploadedFiles() files: UploadedTourFiles,
@@ -219,7 +237,9 @@ export class VirtualTourController {
       video360Url: this.getStringField(body.video360Url, 'video360Url'),
       model3dUrl: this.getStringField(body.model3dUrl, 'model3dUrl'),
       fileName: this.getStringField(body.fileName, 'fileName'),
-      status: this.getStringField(body.status, 'status') as TourStatus || TourStatus.PUBLISHED,
+      status:
+        (this.getStringField(body.status, 'status') as TourStatus) ||
+        TourStatus.PUBLISHED,
       isPublished: this.getBooleanField(body.isPublished, 'isPublished'),
     };
 
@@ -235,15 +255,49 @@ export class VirtualTourController {
   @Get()
   @ApiOperation({
     summary: 'Get all virtual tours with optional filters',
-    description: 'Retrieve a paginated list of virtual tours with optional search and filtering',
+    description:
+      'Retrieve a paginated list of virtual tours with optional search and filtering',
   })
-  @ApiQuery({ name: 'skip', required: false, type: Number, description: 'Number of records to skip' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Maximum records to return' })
-  @ApiQuery({ name: 'search', required: false, type: String, description: 'Search in title, description, location' })
-  @ApiQuery({ name: 'tourType', required: false, enum: ['embed', '360_image', '360_video', '3d_model'] })
-  @ApiQuery({ name: 'status', required: false, enum: ['draft', 'published', 'archived'] })
-  @ApiQuery({ name: 'userId', required: false, type: Number, description: 'Filter by user ID' })
-  @ApiQuery({ name: 'isPublished', required: false, type: Boolean, description: 'Filter by published status' })
+  @ApiQuery({
+    name: 'skip',
+    required: false,
+    type: Number,
+    description: 'Number of records to skip',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Maximum records to return',
+  })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    type: String,
+    description: 'Search in title, description, location',
+  })
+  @ApiQuery({
+    name: 'tourType',
+    required: false,
+    enum: ['embed', '360_image', '360_video', '3d_model'],
+  })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: ['draft', 'published', 'archived'],
+  })
+  @ApiQuery({
+    name: 'userId',
+    required: false,
+    type: Number,
+    description: 'Filter by user ID',
+  })
+  @ApiQuery({
+    name: 'isPublished',
+    required: false,
+    type: Boolean,
+    description: 'Filter by published status',
+  })
   @ApiResponse({
     status: 200,
     description: 'Virtual tours retrieved successfully',
@@ -264,7 +318,8 @@ export class VirtualTourController {
       tourType,
       status,
       userId: userId ? parseInt(userId, 10) : undefined,
-      isPublished: isPublished !== undefined ? isPublished === 'true' : undefined,
+      isPublished:
+        isPublished !== undefined ? isPublished === 'true' : undefined,
     };
     return this.virtualTourService.findAll(filters);
   }
@@ -273,13 +328,17 @@ export class VirtualTourController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({
-    summary: 'Get current user\'s virtual tours',
+    summary: "Get current user's virtual tours",
     description: 'Retrieve all virtual tours created by the authenticated user',
   })
   @ApiQuery({ name: 'skip', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'search', required: false, type: String })
-  @ApiQuery({ name: 'status', required: false, enum: ['draft', 'published', 'archived'] })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: ['draft', 'published', 'archived'],
+  })
   @ApiResponse({
     status: 200,
     description: 'User tours retrieved successfully',
@@ -332,7 +391,10 @@ export class VirtualTourController {
   })
   @ApiResponse({ status: 400, description: 'Bad request - validation failed' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden - You can only update your own tours' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - You can only update your own tours',
+  })
   @ApiResponse({ status: 404, description: 'Virtual tour not found' })
   async update(
     @Param('id', ParseIntPipe) id: number,
@@ -437,7 +499,10 @@ export class VirtualTourController {
     description: 'Virtual tour deleted successfully',
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden - You can only delete your own tours' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - You can only delete your own tours',
+  })
   @ApiResponse({ status: 404, description: 'Virtual tour not found' })
   async remove(@Param('id', ParseIntPipe) id: number, @Request() req) {
     const userId = req.user.id as number;
@@ -525,9 +590,17 @@ export class VirtualTourController {
 
     // Upload all files in parallel
     const [audioResults, imageResults, videoResults] = await Promise.all([
-      audioFiles ? Promise.all(audioFiles.map((f) => this.uploadService.uploadAudio(f))) : [],
-      imageFiles ? this.uploadService.uploadMultipleImages(imageFiles).then((r) => r.successful) : [],
-      videoFiles ? Promise.all(videoFiles.map((f) => this.uploadService.uploadVideo(f))) : [],
+      audioFiles
+        ? Promise.all(audioFiles.map((f) => this.uploadService.uploadAudio(f)))
+        : [],
+      imageFiles
+        ? this.uploadService
+            .uploadMultipleImages(imageFiles)
+            .then((r) => r.successful)
+        : [],
+      videoFiles
+        ? Promise.all(videoFiles.map((f) => this.uploadService.uploadVideo(f)))
+        : [],
     ]);
 
     // Track file indices for each type

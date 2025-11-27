@@ -10,4 +10,4 @@ import { PrismaModule } from '../prisma/prisma.module';
   imports: [PrismaModule, UploadModule],
   exports: [UserProgressService],
 })
-export class UserprogressModule { }
+export class UserprogressModule {}

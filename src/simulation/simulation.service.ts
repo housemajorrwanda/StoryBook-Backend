@@ -1,12 +1,15 @@
-
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateSimulationDto } from './dto/create-simulation.dto';
 import { UpdateSimulationDto } from './dto/update-simulation.dto';
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 
 @Injectable()
 export class SimulationService {
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
 
   async create(userId: number, dto: CreateSimulationDto) {
     // Check if educational content exists if provided
@@ -19,7 +22,9 @@ export class SimulationService {
       }
       // Optional: Check if user owns the educational content or has permission
       if (education.userId && education.userId !== userId) {
-        throw new ForbiddenException('You do not have permission to associate this educational content');
+        throw new ForbiddenException(
+          'You do not have permission to associate this educational content',
+        );
       }
     }
 
@@ -41,15 +46,24 @@ export class SimulationService {
     });
   }
 
-  async findAll(filters: {
-    simulationType?: string;
-    status?: string;
-    isPublished?: boolean;
-    educationId?: number;
-    skip?: number;
-    limit?: number;
-  } = {}) {
-    const { simulationType, status, isPublished, educationId, skip = 0, limit = 10 } = filters;
+  async findAll(
+    filters: {
+      simulationType?: string;
+      status?: string;
+      isPublished?: boolean;
+      educationId?: number;
+      skip?: number;
+      limit?: number;
+    } = {},
+  ) {
+    const {
+      simulationType,
+      status,
+      isPublished,
+      educationId,
+      skip = 0,
+      limit = 10,
+    } = filters;
 
     const where: any = {};
 
@@ -113,8 +127,13 @@ export class SimulationService {
     const existingSimulation = await this.findOne(id);
 
     // Optional: Permission check (e.g., if linked to user-owned content)
-    if (existingSimulation.educationalContent?.userId && existingSimulation.educationalContent.userId !== userId) {
-      throw new ForbiddenException('You do not have permission to update this simulation');
+    if (
+      existingSimulation.educationalContent?.userId &&
+      existingSimulation.educationalContent.userId !== userId
+    ) {
+      throw new ForbiddenException(
+        'You do not have permission to update this simulation',
+      );
     }
 
     const data: any = {};
@@ -122,8 +141,10 @@ export class SimulationService {
     if (dto.title !== undefined) data.title = dto.title;
     if (dto.description !== undefined) data.description = dto.description;
     if (dto.scenario !== undefined) data.scenario = dto.scenario;
-    if (dto.simulationType !== undefined) data.simulationType = dto.simulationType;
-    if (dto.backgroundImage !== undefined) data.backgroundImage = dto.backgroundImage;
+    if (dto.simulationType !== undefined)
+      data.simulationType = dto.simulationType;
+    if (dto.backgroundImage !== undefined)
+      data.backgroundImage = dto.backgroundImage;
     if (dto.educationId !== undefined) {
       // Validate new educationId if changing
       if (dto.educationId !== existingSimulation.educationId) {
@@ -152,8 +173,13 @@ export class SimulationService {
     const existingSimulation = await this.findOne(id);
 
     // Optional: Permission check
-    if (existingSimulation.educationalContent?.userId && existingSimulation.educationalContent.userId !== userId) {
-      throw new ForbiddenException('You do not have permission to delete this simulation');
+    if (
+      existingSimulation.educationalContent?.userId &&
+      existingSimulation.educationalContent.userId !== userId
+    ) {
+      throw new ForbiddenException(
+        'You do not have permission to delete this simulation',
+      );
     }
 
     // Consider cascading deletes or handling relations (e.g., userProgress)
@@ -174,17 +200,19 @@ export class SimulationService {
     const where: any = {};
     if (educationId) where.educationId = educationId;
 
-    const [
-      total,
-      published,
-      draft,
-      progressStats,
-    ] = await Promise.all([
+    const [total, published, draft, progressStats] = await Promise.all([
       this.prisma.scenarioSimulation.count({ where }),
-      this.prisma.scenarioSimulation.count({ where: { ...where, isPublished: true } }),
-      this.prisma.scenarioSimulation.count({ where: { ...where, status: 'draft' } }),
+      this.prisma.scenarioSimulation.count({
+        where: { ...where, isPublished: true },
+      }),
+      this.prisma.scenarioSimulation.count({
+        where: { ...where, status: 'draft' },
+      }),
       this.prisma.userProgress.aggregate({
-        where: { simulationId: { not: null }, ... (educationId ? { educational: { id: educationId } } : {}) },
+        where: {
+          simulationId: { not: null },
+          ...(educationId ? { educational: { id: educationId } } : {}),
+        },
         _avg: { progress: true },
         _count: { id: true },
       }),
