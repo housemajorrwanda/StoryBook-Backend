@@ -7,7 +7,12 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { NotificationService } from './notification.service';
 import { NotificationDto } from './dto/notification.dto';
 import { NotificationQueryDto } from './dto/notification-query.dto';
@@ -56,4 +61,3 @@ export class NotificationController {
     return this.notificationService.markAllAsRead('admin');
   }
 }
-

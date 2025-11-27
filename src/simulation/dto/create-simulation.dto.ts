@@ -1,5 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsOptional, IsEnum, IsUrl, IsNumber, IsBoolean } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsEnum,
+  IsUrl,
+  IsNumber,
+  IsBoolean,
+} from 'class-validator';
 
 export enum SimulationType {
   DECISION = 'decision',
@@ -26,7 +34,8 @@ export class CreateSimulationDto {
 
   @ApiPropertyOptional({
     description: 'Detailed scenario text',
-    example: 'In this scenario, you face choices during a key historical moment...',
+    example:
+      'In this scenario, you face choices during a key historical moment...',
   })
   @IsOptional()
   @IsString()

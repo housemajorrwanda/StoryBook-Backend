@@ -7,6 +7,6 @@ import { PrismaModule } from '../prisma/prisma.module';
   controllers: [SimulationController],
   providers: [SimulationService],
   imports: [PrismaModule],
-  exports: [SimulationService]
+  exports: [SimulationService],
 })
 export class SimulationModule {}

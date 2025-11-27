@@ -1,19 +1,29 @@
-
 import { SimulationService } from './simulation.service';
 import { CreateSimulationDto } from './dto/create-simulation.dto';
 import { UpdateSimulationDto } from './dto/update-simulation.dto';
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+  Request,
+} from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('scenario-simulations')
 @Controller('scenario-simulations')
 export class SimulationController {
-  constructor(private readonly scenarioSimulationService: SimulationService) { }
+  constructor(private readonly scenarioSimulationService: SimulationService) {}
 
   @Post()
- @UseGuards(JwtAuthGuard)
- @ApiBearerAuth('JWT-auth')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
   create(@Request() req, @Body() createDto: CreateSimulationDto) {
     return this.scenarioSimulationService.create(req.user.id, createDto);
   }
@@ -36,8 +46,12 @@ export class SimulationController {
 
   @Put(':id')
   @UseGuards(JwtAuthGuard)
- @ApiBearerAuth('JWT-auth')
-  update(@Request() req, @Param('id') id: string, @Body() updateDto: UpdateSimulationDto) {
+  @ApiBearerAuth('JWT-auth')
+  update(
+    @Request() req,
+    @Param('id') id: string,
+    @Body() updateDto: UpdateSimulationDto,
+  ) {
     return this.scenarioSimulationService.update(+id, req.user.id, updateDto);
   }
 
@@ -56,7 +70,7 @@ export class SimulationController {
   }
 
   @Put(':id/unpublish')
- @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
   unpublish(@Request() req, @Param('id') id: string) {
     return this.scenarioSimulationService.unpublish(+id, req.user.id);
@@ -65,6 +79,8 @@ export class SimulationController {
   @Get('statistics')
   @ApiQuery({ name: 'educationId', required: false, type: Number })
   getStatistics(@Query('educationId') educationId?: string) {
-    return this.scenarioSimulationService.getStatistics(educationId ? +educationId : undefined);
+    return this.scenarioSimulationService.getStatistics(
+      educationId ? +educationId : undefined,
+    );
   }
 }

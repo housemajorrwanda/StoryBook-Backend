@@ -56,4 +56,3 @@ export class NotificationDto {
   })
   readAt?: Date | null;
 }
-

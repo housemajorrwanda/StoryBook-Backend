@@ -1,7 +1,13 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsOptional, IsEnum, IsUrl, IsNumber, IsBoolean } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsEnum,
+  IsUrl,
+  IsNumber,
+  IsBoolean,
+} from 'class-validator';
 import { SimulationType } from './create-simulation.dto';
-
 
 export class UpdateSimulationDto {
   @ApiPropertyOptional({

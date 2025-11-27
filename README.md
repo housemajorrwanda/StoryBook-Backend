@@ -26,6 +26,11 @@ JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
 JWT_EXPIRES_IN=24h
 PORT=3009
 NODE_ENV=development
+AI_EMBEDDING_URL=http://localhost:8081/embeddings
+AI_EMBEDDING_MODEL=nomic-embed-text
+AI_TRANSCRIBE_URL=http://localhost:8082/transcribe
+AI_TRANSCRIBE_MODEL=faster-whisper-large-v3
+AI_HTTP_TIMEOUT=20000
 ```
 
 ### 2. Database Setup

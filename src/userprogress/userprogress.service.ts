@@ -1,11 +1,19 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateUserprogressDto, ProgressContentType } from './dto/create-userprogress.dto';
+import {
+  CreateUserprogressDto,
+  ProgressContentType,
+} from './dto/create-userprogress.dto';
 import { UpdateUserProgressDto } from './dto/update-userprogress.dto';
 
 @Injectable()
 export class UserProgressService {
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
 
   async create(userId: number, dto: CreateUserprogressDto) {
     // Validate that the appropriate content ID is provided based on contentType
@@ -17,7 +25,9 @@ export class UserProgressService {
     // Check for existing progress record
     const existingProgress = await this.findExistingProgress(userId, dto);
     if (existingProgress) {
-      throw new BadRequestException('Progress record already exists for this content');
+      throw new BadRequestException(
+        'Progress record already exists for this content',
+      );
     }
 
     return this.prisma.userProgress.create({
@@ -41,9 +51,12 @@ export class UserProgressService {
             email: true,
           },
         },
-        testimony: dto.contentType === ProgressContentType.TESTIMONY ? true : false,
-        educational: dto.contentType === ProgressContentType.EDUCATION ? true : false,
-        simulation: dto.contentType === ProgressContentType.SIMULATION ? true : false,
+        testimony:
+          dto.contentType === ProgressContentType.TESTIMONY ? true : false,
+        educational:
+          dto.contentType === ProgressContentType.EDUCATION ? true : false,
+        simulation:
+          dto.contentType === ProgressContentType.SIMULATION ? true : false,
       },
     });
   }
@@ -63,11 +76,23 @@ export class UserProgressService {
       return this.prisma.userProgress.update({
         where: { id: existingProgress.id },
         data: {
-          progress: dto.progress !== undefined ? dto.progress : existingProgress.progress,
-          isCompleted: dto.isCompleted !== undefined ? dto.isCompleted : existingProgress.isCompleted,
-          completedAt: dto.isCompleted ? new Date() : existingProgress.completedAt,
-          rating: dto.rating !== undefined ? dto.rating : existingProgress.rating,
-          feedback: dto.feedback !== undefined ? dto.feedback : existingProgress.feedback,
+          progress:
+            dto.progress !== undefined
+              ? dto.progress
+              : existingProgress.progress,
+          isCompleted:
+            dto.isCompleted !== undefined
+              ? dto.isCompleted
+              : existingProgress.isCompleted,
+          completedAt: dto.isCompleted
+            ? new Date()
+            : existingProgress.completedAt,
+          rating:
+            dto.rating !== undefined ? dto.rating : existingProgress.rating,
+          feedback:
+            dto.feedback !== undefined
+              ? dto.feedback
+              : existingProgress.feedback,
         },
         include: {
           user: {
@@ -77,9 +102,12 @@ export class UserProgressService {
               email: true,
             },
           },
-          testimony: dto.contentType === ProgressContentType.TESTIMONY ? true : false,
-          educational: dto.contentType === ProgressContentType.EDUCATION ? true : false,
-          simulation: dto.contentType === ProgressContentType.SIMULATION ? true : false,
+          testimony:
+            dto.contentType === ProgressContentType.TESTIMONY ? true : false,
+          educational:
+            dto.contentType === ProgressContentType.EDUCATION ? true : false,
+          simulation:
+            dto.contentType === ProgressContentType.SIMULATION ? true : false,
         },
       });
     } else {
@@ -154,8 +182,10 @@ export class UserProgressService {
           },
         },
         testimony: contentType === ProgressContentType.TESTIMONY ? true : false,
-        educational: contentType === ProgressContentType.EDUCATION ? true : false,
-        simulation: contentType === ProgressContentType.SIMULATION ? true : false,
+        educational:
+          contentType === ProgressContentType.EDUCATION ? true : false,
+        simulation:
+          contentType === ProgressContentType.SIMULATION ? true : false,
       },
     });
 
@@ -188,7 +218,9 @@ export class UserProgressService {
     }
 
     if (progress.userId !== userId) {
-      throw new ForbiddenException('You can only access your own progress records');
+      throw new ForbiddenException(
+        'You can only access your own progress records',
+      );
     }
 
     return progress;
@@ -292,7 +324,8 @@ export class UserProgressService {
       }),
     ]);
 
-    const completionRate = totalProgress > 0 ? (completedProgress / totalProgress) * 100 : 0;
+    const completionRate =
+      totalProgress > 0 ? (completedProgress / totalProgress) * 100 : 0;
 
     return {
       totalProgress,
@@ -316,39 +349,59 @@ export class UserProgressService {
     switch (dto.contentType) {
       case ProgressContentType.TESTIMONY:
         if (!dto.testimonyId) {
-          throw new BadRequestException('testimonyId is required for testimony content type');
+          throw new BadRequestException(
+            'testimonyId is required for testimony content type',
+          );
         }
         if (dto.educationId !== undefined) {
-          throw new BadRequestException('educationId should not be provided for testimony content type');
+          throw new BadRequestException(
+            'educationId should not be provided for testimony content type',
+          );
         }
         if (dto.simulationId !== undefined) {
-          throw new BadRequestException('simulationId should not be provided for testimony content type');
+          throw new BadRequestException(
+            'simulationId should not be provided for testimony content type',
+          );
         }
         break;
       case ProgressContentType.EDUCATION:
         if (!dto.educationId) {
-          throw new BadRequestException('educationId is required for education content type');
+          throw new BadRequestException(
+            'educationId is required for education content type',
+          );
         }
         if (dto.testimonyId !== undefined) {
-          throw new BadRequestException('testimonyId should not be provided for education content type');
+          throw new BadRequestException(
+            'testimonyId should not be provided for education content type',
+          );
         }
         if (dto.simulationId !== undefined) {
-          throw new BadRequestException('simulationId should not be provided for education content type');
+          throw new BadRequestException(
+            'simulationId should not be provided for education content type',
+          );
         }
         break;
       case ProgressContentType.SIMULATION:
         if (!dto.simulationId) {
-          throw new BadRequestException('simulationId is required for simulation content type');
+          throw new BadRequestException(
+            'simulationId is required for simulation content type',
+          );
         }
         if (dto.testimonyId !== undefined) {
-          throw new BadRequestException('testimonyId should not be provided for simulation content type');
+          throw new BadRequestException(
+            'testimonyId should not be provided for simulation content type',
+          );
         }
         if (dto.educationId !== undefined) {
-          throw new BadRequestException('educationId should not be provided for simulation content type');
+          throw new BadRequestException(
+            'educationId should not be provided for simulation content type',
+          );
         }
         break;
       default:
-        throw new BadRequestException(`Invalid content type: ${dto.contentType}`);
+        throw new BadRequestException(
+          `Invalid content type: ${dto.contentType}`,
+        );
     }
   }
 
@@ -387,7 +440,10 @@ export class UserProgressService {
     }
   }
 
-  private async findExistingProgress(userId: number, dto: CreateUserprogressDto) {
+  private async findExistingProgress(
+    userId: number,
+    dto: CreateUserprogressDto,
+  ) {
     // Get the appropriate content ID based on contentType
     let contentId: number;
 
@@ -402,17 +458,27 @@ export class UserProgressService {
         contentId = dto.simulationId!;
         break;
       default:
-        throw new BadRequestException(`Invalid content type: ${dto.contentType}`);
+        throw new BadRequestException(
+          `Invalid content type: ${dto.contentType}`,
+        );
     }
 
-    const where = this.buildContentWhereClause(userId, dto.contentType, contentId);
+    const where = this.buildContentWhereClause(
+      userId,
+      dto.contentType,
+      contentId,
+    );
 
     return this.prisma.userProgress.findFirst({
       where,
     });
   }
 
-  private buildContentWhereClause(userId: number, contentType: ProgressContentType, contentId: number) {
+  private buildContentWhereClause(
+    userId: number,
+    contentType: ProgressContentType,
+    contentId: number,
+  ) {
     const where: any = { userId, contentType };
 
     switch (contentType) {

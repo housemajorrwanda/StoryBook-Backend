@@ -1,11 +1,20 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateEducationDto, ContentType, ContentStatus } from './dto/create-education.dto';
+import {
+  CreateEducationDto,
+  ContentType,
+  ContentStatus,
+} from './dto/create-education.dto';
 import { UpdateEducationDto } from './dto/update-education.dto';
 
 @Injectable()
 export class EducationService {
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
 
   async create(userId: number, dto: CreateEducationDto) {
     return this.prisma.educationalContent.create({
@@ -42,16 +51,26 @@ export class EducationService {
     });
   }
 
-  async findAll(filters: {
-    skip?: number;
-    limit?: number;
-    search?: string;
-    type?: ContentType;
-    category?: string;
-    status?: ContentStatus;
-    isPublished?: boolean;
-  } = {}) {
-    const { skip = 0, limit = 10, search, type, category, status, isPublished } = filters;
+  async findAll(
+    filters: {
+      skip?: number;
+      limit?: number;
+      search?: string;
+      type?: ContentType;
+      category?: string;
+      status?: ContentStatus;
+      isPublished?: boolean;
+    } = {},
+  ) {
+    const {
+      skip = 0,
+      limit = 10,
+      search,
+      type,
+      category,
+      status,
+      isPublished,
+    } = filters;
 
     const where: any = {};
 
@@ -151,7 +170,9 @@ export class EducationService {
 
     // Check ownership (users can only update their own content, admins can update any)
     if (content.userId !== userId) {
-      throw new ForbiddenException('You can only update your own educational content');
+      throw new ForbiddenException(
+        'You can only update your own educational content',
+      );
     }
 
     return this.prisma.educationalContent.update({
@@ -186,7 +207,9 @@ export class EducationService {
 
     // Check ownership
     if (content.userId !== userId) {
-      throw new ForbiddenException('You can only delete your own educational content');
+      throw new ForbiddenException(
+        'You can only delete your own educational content',
+      );
     }
 
     return this.prisma.educationalContent.delete({
@@ -214,7 +237,7 @@ export class EducationService {
       where: {
         category,
         isPublished: true,
-        status: ContentStatus.PUBLISHED
+        status: ContentStatus.PUBLISHED,
       },
       include: {
         user: {
@@ -233,7 +256,9 @@ export class EducationService {
     });
   }
 
-  async findPublished(filters: { skip?: number; limit?: number; search?: string } = {}) {
+  async findPublished(
+    filters: { skip?: number; limit?: number; search?: string } = {},
+  ) {
     const { skip = 0, limit = 10, search } = filters;
 
     const where: any = {
@@ -288,10 +313,7 @@ export class EducationService {
           },
         },
       },
-      orderBy: [
-        { views: 'desc' },
-        { createdAt: 'desc' },
-      ],
+      orderBy: [{ views: 'desc' }, { createdAt: 'desc' }],
       take: limit,
     });
 
@@ -311,7 +333,7 @@ export class EducationService {
             ...content,
             isCompleted: !!userProgress?.isCompleted,
           };
-        })
+        }),
       );
 
       return contentWithProgress;
@@ -320,7 +342,6 @@ export class EducationService {
     return popularContent;
   }
 
- 
   async getContentStatistics() {
     try {
       const [
@@ -392,12 +413,12 @@ export class EducationService {
 
       // Create properly typed objects with null safety
       const contentByTypeObj: Record<string, number> = {};
-      contentByType.forEach(item => {
+      contentByType.forEach((item) => {
         contentByTypeObj[item.type] = item._count.id;
       });
 
       const contentByCategoryObj: Record<string, number> = {};
-      contentByCategory.forEach(item => {
+      contentByCategory.forEach((item) => {
         const categoryKey = item.category || 'uncategorized';
         contentByCategoryObj[categoryKey] = item._count.id;
       });
@@ -407,12 +428,14 @@ export class EducationService {
         publishedContent,
         draftContent,
         totalViews: totalViews._sum?.views || 0,
-        mostViewedContent: mostViewedContent ? {
-          id: mostViewedContent.id,
-          title: mostViewedContent.title,
-          views: mostViewedContent.views,
-          author: mostViewedContent.user?.fullName || 'Unknown',
-        } : null,
+        mostViewedContent: mostViewedContent
+          ? {
+              id: mostViewedContent.id,
+              title: mostViewedContent.title,
+              views: mostViewedContent.views,
+              author: mostViewedContent.user?.fullName || 'Unknown',
+            }
+          : null,
         contentByType: contentByTypeObj,
         contentByCategory: contentByCategoryObj,
         totalUserProgress,
@@ -434,11 +457,17 @@ export class EducationService {
     });
   }
 
-  async trackUserProgress(userId: number, contentId: number, completed: boolean = true) {
+  async trackUserProgress(
+    userId: number,
+    contentId: number,
+    completed: boolean = true,
+  ) {
     const content = await this.findOne(contentId);
 
     if (!content.isPublished || content.status !== ContentStatus.PUBLISHED) {
-      throw new BadRequestException('Cannot track progress for unpublished content');
+      throw new BadRequestException(
+        'Cannot track progress for unpublished content',
+      );
     }
 
     return this.prisma.userProgress.upsert({
@@ -467,30 +496,34 @@ export class EducationService {
   }
 
   async getUserLearningProgress(userId: number) {
-    const [totalContent, completedContent, inProgressContent] = await Promise.all([
-      this.prisma.educationalContent.count({
-        where: {
-          isPublished: true,
-          status: ContentStatus.PUBLISHED,
-        },
-      }),
-      this.prisma.userProgress.count({
-        where: {
-          userId,
-          contentType: 'education',
-          isCompleted: true,
-        },
-      }),
-      this.prisma.userProgress.count({
-        where: {
-          userId,
-          contentType: 'education',
-          isCompleted: false,
-        },
-      }),
-    ]);
+    const [totalContent, completedContent, inProgressContent] =
+      await Promise.all([
+        this.prisma.educationalContent.count({
+          where: {
+            isPublished: true,
+            status: ContentStatus.PUBLISHED,
+          },
+        }),
+        this.prisma.userProgress.count({
+          where: {
+            userId,
+            contentType: 'education',
+            isCompleted: true,
+          },
+        }),
+        this.prisma.userProgress.count({
+          where: {
+            userId,
+            contentType: 'education',
+            isCompleted: false,
+          },
+        }),
+      ]);
 
-    const progressPercentage = totalContent > 0 ? Math.round((completedContent / totalContent) * 100) : 0;
+    const progressPercentage =
+      totalContent > 0
+        ? Math.round((completedContent / totalContent) * 100)
+        : 0;
 
     return {
       totalContent,

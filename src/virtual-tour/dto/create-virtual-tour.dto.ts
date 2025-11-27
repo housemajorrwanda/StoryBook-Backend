@@ -11,7 +11,6 @@ import {
   ValidateIf,
 } from 'class-validator';
 
-
 export enum TourType {
   EMBED = 'embed',
   IMAGE_360 = '360_image',
@@ -40,7 +39,8 @@ export class CreateVirtualTourDto {
 
   @ApiPropertyOptional({
     description: 'Description of the virtual tour',
-    example: 'Explore our extensive collection of modern and contemporary art from around the world',
+    example:
+      'Explore our extensive collection of modern and contemporary art from around the world',
     maxLength: 5000,
   })
   @IsOptional()
@@ -79,7 +79,8 @@ export class CreateVirtualTourDto {
 
   @ApiPropertyOptional({
     description: '360 image URL for 360 image tours',
-    example: 'https://cloudinary.com/demo/image/upload/virtual-tours/museum-360-panorama.jpg',
+    example:
+      'https://cloudinary.com/demo/image/upload/virtual-tours/museum-360-panorama.jpg',
   })
   @ValidateIf((o) => o.tourType === TourType.IMAGE_360)
   @IsUrl()
@@ -87,7 +88,8 @@ export class CreateVirtualTourDto {
 
   @ApiPropertyOptional({
     description: '360 video URL for 360 video tours',
-    example: 'https://cloudinary.com/demo/video/upload/virtual-tours/museum-360-video.mp4',
+    example:
+      'https://cloudinary.com/demo/video/upload/virtual-tours/museum-360-video.mp4',
   })
   @ValidateIf((o) => o.tourType === TourType.VIDEO_360)
   @IsUrl()
@@ -95,7 +97,8 @@ export class CreateVirtualTourDto {
 
   @ApiPropertyOptional({
     description: '3D model URL for 3D model tours',
-    example: 'https://cloudinary.com/demo/raw/upload/virtual-tours/museum-3d-model.glb',
+    example:
+      'https://cloudinary.com/demo/raw/upload/virtual-tours/museum-3d-model.glb',
   })
   @ValidateIf((o) => o.tourType === TourType.MODEL_3D)
   @IsUrl()

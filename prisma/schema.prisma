@@ -291,7 +291,6 @@ model RelativeType {
   synonyms    String? @db.Text
 
   relatives TestimonyRelative[]
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

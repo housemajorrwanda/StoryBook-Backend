@@ -10,6 +10,8 @@ import { EmailService } from '../email/email.service';
 import { NotificationService } from '../notification/notification.service';
 import { CreateTestimonyDto } from './dto/create-testimony.dto';
 import { UpdateTestimonyDto } from './dto/update-testimony.dto';
+import { TestimonyAiService } from '../ai-processing/testimony-ai.service';
+import { TestimonyConnectionService } from '../ai-processing/testimony-connection.service';
 
 @Injectable()
 export class TestimonyService {
@@ -17,6 +19,8 @@ export class TestimonyService {
     private prisma: PrismaService,
     private emailService: EmailService,
     private notificationService: NotificationService,
+    private testimonyAiService: TestimonyAiService,
+    private connectionService: TestimonyConnectionService,
   ) {}
 
   async create(userId: number, createTestimonyDto: CreateTestimonyDto) {
@@ -282,27 +286,118 @@ export class TestimonyService {
     }
 
     try {
-      const related = await this.prisma.testimony.findMany({
+      // Get connected testimonies via edges with connection details
+      const edges = await this.prisma.testimonyEdge.findMany({
         where: {
-          id: { not: id },
-          status: 'approved',
-          isPublished: true,
+          fromId: id,
+          to: {
+            status: 'approved',
+            isPublished: true,
+          },
         },
         include: {
-          images: { orderBy: { order: 'asc' } },
-          user: { select: { id: true, fullName: true, residentPlace: true } },
+          to: {
+            include: {
+              images: { orderBy: { order: 'asc' } },
+              user: {
+                select: { id: true, fullName: true, residentPlace: true },
+              },
+            },
+          },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { score: 'desc' },
         take: limit,
       });
 
-      return related;
+      // Map edges to include connection details with accuracy scores
+      const relatedWithConnections = edges
+        .map((edge) => {
+          if (
+            !edge.to ||
+            edge.to.status !== 'approved' ||
+            edge.to.isPublished !== true
+          ) {
+            return null;
+          }
+
+          return {
+            ...edge.to,
+            connectionDetails: {
+              accuracyScore: Math.round(edge.score * 100), // 0-100 format
+              rawScore: edge.score,
+              connectionType: edge.type,
+              connectionReason: this.getConnectionReason(edge.type),
+              source: edge.source,
+            },
+          };
+        })
+        .filter((item): item is NonNullable<typeof item> => item !== null);
+
+      // If we don't have enough connections, fill with recent approved testimonies
+      if (relatedWithConnections.length < limit) {
+        const relatedIds = relatedWithConnections.map((t) => t.id);
+        const additional = await this.prisma.testimony.findMany({
+          where: {
+            id: {
+              notIn: [id, ...relatedIds],
+            },
+            status: 'approved',
+            isPublished: true,
+          },
+          include: {
+            images: { orderBy: { order: 'asc' } },
+            user: {
+              select: { id: true, fullName: true, residentPlace: true },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: limit - relatedWithConnections.length,
+        });
+
+        // Add connection details for non-connected testimonies (lower accuracy)
+        relatedWithConnections.push(
+          ...additional.map((testimony) => ({
+            ...testimony,
+            connectionDetails: {
+              accuracyScore: 0, // No connection found
+              rawScore: 0,
+              connectionType: 'fallback',
+              connectionReason: 'Recently published testimony',
+              source: 'recent_fallback',
+            },
+          })),
+        );
+      }
+
+      return relatedWithConnections.slice(0, limit);
     } catch (error: unknown) {
       console.error('Error fetching related testimonies:', error);
       throw new InternalServerErrorException(
         'Failed to fetch related testimonies',
       );
     }
+  }
+
+  /**
+   * Get human-readable reason for connection type
+   */
+  private getConnectionReason(type: string): string {
+    const reasons: Record<string, string> = {
+      semantic_similarity: 'Similar content and themes',
+      same_event: 'Share the same event',
+      same_location: 'Mention the same location',
+      same_person: 'Mention the same person',
+      same_person_same_type: 'Mention the same person with same relationship',
+      same_relation_to_event: 'Both have the same relation to the event',
+      same_date: 'Occurred on the same date',
+      same_month: 'Occurred in the same month',
+      same_year: 'Occurred in the same year',
+      overlapping_dates: 'Overlapping time periods',
+      nearby_dates: 'Occurred within 30 days',
+      fallback: 'Recently published testimony',
+    };
+
+    return reasons[type] || 'Connected testimonies';
   }
 
   async getComparison(id: number, userId: number, userRole?: string) {
@@ -853,6 +948,17 @@ export class TestimonyService {
           })
           .catch((err) =>
             console.warn('Failed to create feedback notification:', err),
+          );
+      }
+
+      if (status === 'approved') {
+        void this.testimonyAiService
+          .processTestimony(testimony.id)
+          .catch((err) =>
+            console.warn(
+              `Failed to enqueue AI processing for testimony ${testimony.id}:`,
+              err,
+            ),
           );
       }
 
