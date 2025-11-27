@@ -3,7 +3,7 @@
 # Load environment variables from .env file
 if [ -f .env ]; then
     echo "📄 Loading environment variables from .env file..."
-    set -a  # Automatically export all variables
+    set -a
     source .env
     set +a
 fi
@@ -72,4 +72,27 @@ npx prisma migrate deploy || {
 echo "✅ Migrations completed successfully"
 
 echo "🚀 Starting application..."
-exec node dist/src/main
+# Start the application in the background
+node dist/src/main &
+
+# Wait for the application to be ready
+echo "⏳ Waiting for application to be ready..."
+APP_READY=false
+for i in $(seq 1 30); do
+    if curl -f http://localhost:3009/health > /dev/null 2>&1; then
+        APP_READY=true
+        break
+    fi
+    echo "⏳ Application not ready yet (attempt $i/30)..."
+    sleep 2
+done
+
+if [ "$APP_READY" = "false" ]; then
+    echo "❌ Application failed to become ready"
+    exit 1
+fi
+
+echo "✅ Application is ready and health check endpoint is responding"
+
+# Keep the container running
+wait
