@@ -17,7 +17,8 @@ if [ -z "$DATABASE_URL" ]; then
 fi
 
 # Show which database we're connecting to (for debugging)
-echo "🔗 Database URL: $(echo $DATABASE_URL | sed 's/:[^:]*@/:***@/')"
+CLEAN_DB_URL=$(echo "$DATABASE_URL" | sed 's/:[^:]*@/:***@/')
+echo "🔗 Database URL: $CLEAN_DB_URL"
 echo "🌐 Environment: $NODE_ENV"
 
 echo "🔧 Generating Prisma client..."
@@ -36,10 +37,14 @@ wait_for_database() {
     while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
         echo "🔍 Testing database connection (attempt $((RETRY_COUNT + 1))/$MAX_RETRIES)..."
         
-        if npx prisma db execute --stdin --schema ./prisma/schema.prisma <<< "SELECT 1;" > /dev/null 2>&1; then
+        # Use a temporary file for the SQL command to avoid redirection issues
+        echo "SELECT 1;" > /tmp/test_query.sql
+        if npx prisma db execute --file /tmp/test_query.sql --schema ./prisma/schema.prisma > /dev/null 2>&1; then
             echo "✅ Database is ready and responsive!"
+            rm -f /tmp/test_query.sql
             return 0
         fi
+        rm -f /tmp/test_query.sql
         
         RETRY_COUNT=$((RETRY_COUNT + 1))
         if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
