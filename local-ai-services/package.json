@@ -1,0 +1,15 @@
+{
+  "name": "local-ai-services",
+  "version": "1.0.0",
+  "description": "Local AI services for embedding and transcription",
+  "scripts": {
+    "start:embedding": "node embedding-server.js",
+    "start:transcription": "python3 transcription-server.py"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "axios": "^1.6.0",
+    "cors": "^2.8.5"
+  }
+}
+
