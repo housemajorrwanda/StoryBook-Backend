@@ -11,7 +11,7 @@ CREATE TABLE testimony_edges (
   id SERIAL PRIMARY KEY,
   fromId INT NOT NULL,           -- Source testimony ID
   toId INT NOT NULL,             -- Connected testimony ID
-  type VARCHAR NOT NULL,         -- Connection type
+  type VARCHAR NOT NULL,         -- Connection type 
   score FLOAT NOT NULL,          -- Connection strength (0.0 - 1.0)
   source VARCHAR,                -- How the connection was found
   createdAt TIMESTAMP DEFAULT NOW(),
