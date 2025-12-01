@@ -554,7 +554,9 @@ export class TestimonyController {
   @Get(':id')
   @ApiOperation({
     summary:
-      'Get a single testimony by ID or slug. Supports formats: "1" or "1-testimony-title". Includes resume progress if logged in.',
+      'Get a single testimony by ID or slug. Supports formats: "1" or "1-testimony-title". Includes resume progress if logged in and AI connections if available.',
+    description:
+      'Returns a single testimony with all its details. If AI connections exist for this testimony, they will be included in the response under the `connections` field. Each connection shows related testimonies with accuracy scores, connection reasons, and contact information (email, name, location) if the connected testimony author chose "public" identity preference.',
   })
   @ApiParam({
     name: 'id',
@@ -569,6 +571,13 @@ export class TestimonyController {
     description:
       'Update resume position (seconds) - only works if authenticated',
   })
+  @ApiQuery({
+    name: 'connectionsLimit',
+    required: false,
+    type: Number,
+    description:
+      'Maximum number of AI connections to return (default: 10, max: 50)',
+  })
   @ApiResponse({
     status: 200,
     description: 'Testimony details with resume progress if user is logged in',
@@ -582,10 +591,19 @@ export class TestimonyController {
     @Param('id', TestimonyIdPipe) id: number,
     @Request() req: { user?: User & { role?: string; fullName?: string } },
     @Query('progress') progress?: string,
+    @Query('connectionsLimit') connectionsLimit?: string,
   ) {
     const userId = req.user?.id;
     const progressSeconds = progress ? parseInt(progress, 10) : undefined;
-    return this.testimonyService.findOne(id, userId, progressSeconds);
+    const connectionsLimitNum = connectionsLimit
+      ? Math.min(50, Math.max(1, parseInt(connectionsLimit, 10)))
+      : 10;
+    return this.testimonyService.findOne(
+      id,
+      userId,
+      progressSeconds,
+      connectionsLimitNum,
+    );
   }
 
   @Get(':id/comparison')
@@ -617,37 +635,43 @@ export class TestimonyController {
     return this.testimonyService.getComparison(id, userId, userRole);
   }
 
-  @Get(':id/related')
+  @Get('connections/all')
   @ApiOperation({
-    summary: 'Get related testimonies based on AI connections',
-    description:
-      'Returns testimonies connected to this one via semantic similarity, shared events, locations, people, or timeframes. The ID is the testimony ID from the URL parameter.',
-  })
-  @ApiParam({
-    name: 'id',
-    type: Number,
-    description: 'The testimony ID to find related testimonies for',
+    summary: 'Get all AI connections in the system',
+    description: `Returns all connections between testimonies discovered by AI. The AI analyzes testimonies using two methods:
+
+**1. Semantic Similarity (AI-Powered):**
+- Analyzes testimony content (title, description, fullTestimony, transcript) using embeddings
+- Finds testimonies with similar themes, topics, and content
+- Uses cosine similarity on vector embeddings (threshold: 70%+ similarity)
+
+**2. Rule-Based Connections:**
+- **Same Event**: Testimonies about the same event (score: 90%)
+- **Same Location**: Testimonies from the same location (score: 80%)
+- **Same Person**: Testimonies mentioning the same person (score: 85%)
+- **Same Person + Same Relationship Type**: Same person with same relationship (score: 90%)
+- **Same Relation to Event**: Both are "Survivor", "Witness", etc. (score: 75%)
+- **Same Date**: Occurred on exact same date (score: 95%)
+- **Same Month**: Same month and year (score: 80%)
+- **Same Year**: Same year (score: 70%)
+- **Overlapping Dates**: Date ranges overlap (score: 60-75%)
+- **Nearby Dates**: Within 30 days of each other (score: 50-70%)
+
+Each connection includes an accuracy score (0-100) indicating connection strength.`,
   })
   @ApiQuery({
     name: 'limit',
     required: false,
     type: Number,
-    description: 'Max items to return (default: 5)',
+    description: 'Max connections to return (default: 50)',
   })
   @ApiResponse({
     status: 200,
-    description: 'Related testimonies sorted by connection strength',
-    schema: {
-      type: 'array',
-      items: { $ref: '#/components/schemas/TestimonyResponseDto' },
-    },
+    description: 'All connections sorted by connection strength',
   })
-  async getRelated(
-    @Param('id', TestimonyIdPipe) id: number,
-    @Query('limit') limit?: string,
-  ) {
-    const take = limit ? parseInt(limit, 10) : 5;
-    return this.testimonyService.getRelated(id, take);
+  async getAllConnections(@Query('limit') limit?: string) {
+    const take = limit ? parseInt(limit, 10) : 50;
+    return this.testimonyService.getAllConnections(take);
   }
 
   @Post(':id/discover-connections')

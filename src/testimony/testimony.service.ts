@@ -300,7 +300,12 @@ export class TestimonyService {
             include: {
               images: { orderBy: { order: 'asc' } },
               user: {
-                select: { id: true, fullName: true, residentPlace: true },
+                select: {
+                  id: true,
+                  fullName: true,
+                  email: true,
+                  residentPlace: true,
+                },
               },
             },
           },
@@ -320,6 +325,17 @@ export class TestimonyService {
             return null;
           }
 
+          // Include contact info only if user chose "public" identity preference
+          const isPublic = edge.to.identityPreference === 'public';
+          const contactInfo =
+            isPublic && edge.to.user
+              ? {
+                  email: edge.to.user.email,
+                  fullName: edge.to.user.fullName || edge.to.fullName || null,
+                  residentPlace: edge.to.user.residentPlace || null,
+                }
+              : null;
+
           return {
             ...edge.to,
             connectionDetails: {
@@ -329,6 +345,7 @@ export class TestimonyService {
               connectionReason: this.getConnectionReason(edge.type),
               source: edge.source,
             },
+            contactInfo, // Contact information (only if identityPreference is "public")
           };
         })
         .filter((item): item is NonNullable<typeof item> => item !== null);
@@ -347,7 +364,12 @@ export class TestimonyService {
           include: {
             images: { orderBy: { order: 'asc' } },
             user: {
-              select: { id: true, fullName: true, residentPlace: true },
+              select: {
+                id: true,
+                fullName: true,
+                email: true,
+                residentPlace: true,
+              },
             },
           },
           orderBy: { createdAt: 'desc' },
@@ -356,16 +378,30 @@ export class TestimonyService {
 
         // Add connection details for non-connected testimonies (lower accuracy)
         relatedWithConnections.push(
-          ...additional.map((testimony) => ({
-            ...testimony,
-            connectionDetails: {
-              accuracyScore: 0, // No connection found
-              rawScore: 0,
-              connectionType: 'fallback',
-              connectionReason: 'Recently published testimony',
-              source: 'recent_fallback',
-            },
-          })),
+          ...additional.map((testimony) => {
+            const isPublic = testimony.identityPreference === 'public';
+            const contactInfo =
+              isPublic && testimony.user
+                ? {
+                    email: testimony.user.email,
+                    fullName:
+                      testimony.user.fullName || testimony.fullName || null,
+                    residentPlace: testimony.user.residentPlace || null,
+                  }
+                : null;
+
+            return {
+              ...testimony,
+              connectionDetails: {
+                accuracyScore: 0, // No connection found
+                rawScore: 0,
+                connectionType: 'fallback',
+                connectionReason: 'Recently published testimony',
+                source: 'recent_fallback',
+              },
+              contactInfo, // Contact information (only if identityPreference is "public")
+            };
+          }),
         );
       }
 
@@ -375,6 +411,70 @@ export class TestimonyService {
       throw new InternalServerErrorException(
         'Failed to fetch related testimonies',
       );
+    }
+  }
+
+  /**
+   * Get all AI connections in the system
+   * Returns all testimony edges with connection details
+   */
+  async getAllConnections(limit = 50) {
+    try {
+      const edges = await this.prisma.testimonyEdge.findMany({
+        where: {
+          from: {
+            status: 'approved',
+            isPublished: true,
+          },
+          to: {
+            status: 'approved',
+            isPublished: true,
+          },
+        },
+        include: {
+          from: {
+            select: {
+              id: true,
+              eventTitle: true,
+              eventDescription: true,
+            },
+          },
+          to: {
+            select: {
+              id: true,
+              eventTitle: true,
+              eventDescription: true,
+            },
+          },
+        },
+        orderBy: { score: 'desc' },
+        take: limit,
+      });
+
+      return edges.map((edge) => ({
+        id: edge.id,
+        fromTestimony: {
+          id: edge.from.id,
+          eventTitle: edge.from.eventTitle,
+          eventDescription: edge.from.eventDescription,
+        },
+        toTestimony: {
+          id: edge.to.id,
+          eventTitle: edge.to.eventTitle,
+          eventDescription: edge.to.eventDescription,
+        },
+        connectionDetails: {
+          accuracyScore: Math.round(edge.score * 100),
+          rawScore: edge.score,
+          connectionType: edge.type,
+          connectionReason: this.getConnectionReason(edge.type),
+          source: edge.source,
+        },
+        createdAt: edge.createdAt,
+      }));
+    } catch (error: unknown) {
+      console.error('Error fetching all connections:', error);
+      throw new InternalServerErrorException('Failed to fetch all connections');
     }
   }
 
@@ -526,7 +626,12 @@ export class TestimonyService {
     }
   }
 
-  async findOne(id: number, userId?: number, progressSeconds?: number) {
+  async findOne(
+    id: number,
+    userId?: number,
+    progressSeconds?: number,
+    connectionsLimit: number = 10,
+  ) {
     if (!id || id <= 0) {
       throw new BadRequestException('Invalid testimony ID');
     }
@@ -607,10 +712,61 @@ export class TestimonyService {
         }
       }
 
+      // Get AI connections for this testimony
+      let connections: Array<{
+        id: number;
+        eventTitle: string;
+        eventDescription: string | null;
+        connectionDetails: {
+          accuracyScore: number;
+          rawScore: number;
+          connectionType: string;
+          connectionReason: string;
+          source: string | null;
+        };
+        contactInfo: {
+          email: string;
+          fullName: string | null;
+          residentPlace: string | null;
+        } | null;
+      }> = [];
+
+      try {
+        const related = await this.getRelated(id, connectionsLimit);
+        connections = related
+          .filter((t) => t.connectionDetails !== undefined)
+          .map((t) => ({
+            id: t.id,
+            eventTitle: t.eventTitle,
+            eventDescription: t.eventDescription ?? null,
+            connectionDetails: t.connectionDetails as {
+              accuracyScore: number;
+              rawScore: number;
+              connectionType: string;
+              connectionReason: string;
+              source: string | null;
+            },
+            contactInfo:
+              (
+                t as {
+                  contactInfo?: {
+                    email: string;
+                    fullName: string | null;
+                    residentPlace: string | null;
+                  } | null;
+                }
+              ).contactInfo ?? null,
+          }));
+      } catch (error) {
+        // If connections fail to load, just log and continue without them
+        console.warn(`Failed to load connections for testimony ${id}:`, error);
+      }
+
       return {
         ...testimony,
         impressions: testimony.impressions + 1,
         resumePosition: resumeProgress?.lastPositionSeconds || 0,
+        connections, // Include AI connections
       };
     } catch (error: unknown) {
       if (
