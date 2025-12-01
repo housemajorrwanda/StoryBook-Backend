@@ -18,8 +18,7 @@ export class TranscriptionService {
   constructor(private readonly configService: ConfigService) {
     this.baseUrl = this.configService.get<string>('AI_TRANSCRIBE_URL');
     this.modelName =
-      this.configService.get<string>('AI_TRANSCRIBE_MODEL') ??
-      'faster-whisper-large-v3';
+      this.configService.get<string>('AI_TRANSCRIBE_MODEL') ?? 'large-v3';
     const timeout = this.configService.get<number>('AI_HTTP_TIMEOUT') ?? 20000;
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     this.httpClient = axios.create({
@@ -47,7 +46,7 @@ export class TranscriptionService {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
         await this.httpClient.post<TranscriptionResponse>(this.baseUrl, {
           audioUrl: sourceUrl,
-          model: this.modelName,
+          // Note: Model is configured in transcription server, not sent in request
         });
 
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
