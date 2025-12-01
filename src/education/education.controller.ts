@@ -15,6 +15,7 @@ import {
   HttpCode,
   HttpStatus,
   BadRequestException,
+  Put,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -221,6 +222,8 @@ export class EducationController {
   }
 
   @Get('popular')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get popular educational content (most viewed)' })
   @ApiQuery({
     name: 'limit',
@@ -279,7 +282,22 @@ export class EducationController {
     return this.educationService.findUserContent(userId);
   }
 
+  @Get('my-progress')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Get user learning progress statistics' })
+  @ApiResponse({
+    status: 200,
+    description: 'User learning progress',
+  })
+  async getUserLearningProgress(@Request() req) {
+    const userId = req.user.id;
+    return this.educationService.getUserLearningProgress(userId);
+  }
+
   @Get(':id')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get educational content by ID' })
   @ApiParam({ name: 'id', type: Number })
   @ApiResponse({
@@ -287,8 +305,54 @@ export class EducationController {
     description: 'Educational content details',
     type: EducationResponseDto,
   })
-  async findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.educationService.findOne(id);
+  async findOne(@Param('id', ParseIntPipe) id: number, @Request() req) {
+    const userId = req.user?.id;
+    return this.educationService.findOne(id, userId);
+  }
+
+  @Post(':id/view')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Increment view count for educational content' })
+  @ApiParam({ name: 'id', type: Number })
+  @ApiResponse({
+    status: 200,
+    description: 'View count incremented successfully',
+  })
+  async incrementViews(@Param('id', ParseIntPipe) id: number) {
+    await this.educationService.incrementViews(id);
+    return { message: 'View count incremented successfully' };
+  }
+
+  @Post(':id/progress')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Track user progress for educational content' })
+  @ApiParam({ name: 'id', type: Number })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        completed: { type: 'boolean', default: true },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'User progress tracked successfully',
+  })
+  async trackUserProgress(
+    @Param('id', ParseIntPipe) contentId: number,
+    @Request() req,
+    @Body('completed') completed?: boolean,
+  ) {
+    const userId = req.user.id;
+    return this.educationService.trackUserProgress(
+      userId,
+      contentId,
+      completed,
+    );
   }
 
   @Patch(':id')
