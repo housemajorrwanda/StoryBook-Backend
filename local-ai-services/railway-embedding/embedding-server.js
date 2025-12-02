@@ -69,8 +69,8 @@ app.get('/health', (req, res) => {
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`✅ Embedding server running on http://localhost:${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Embedding server running on http://0.0.0.0:${PORT}`);
   console.log(`   Ollama URL: ${OLLAMA_URL}`);
   console.log(`   Test: curl http://localhost:${PORT}/health`);
 });
