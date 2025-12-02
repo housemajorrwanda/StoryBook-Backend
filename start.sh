@@ -73,8 +73,8 @@ wait_for_database() {
                 return 0
             fi
         else
-            # Fallback to Prisma if psql not available
-            if npx prisma db execute --stdin --schema ./prisma/schema.prisma <<< "SELECT 1;" >/dev/null 2>&1; then
+            # Fallback to Prisma if psql not available (use echo pipe for sh compatibility)
+            if echo "SELECT 1;" | npx prisma db execute --stdin --schema ./prisma/schema.prisma >/dev/null 2>&1; then
                 echo "✅ Database connection successful!"
                 return 0
             fi
