@@ -91,6 +91,20 @@ def transcribe():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route('/', methods=['GET'])
+def root():
+    return jsonify({
+        "status": "ok",
+        "service": "transcription-server",
+        "endpoints": {
+            "health": "/health",
+            "transcribe": "/transcribe (POST)",
+        },
+        "model": MODEL_NAME,
+        "compute_type": COMPUTE_TYPE,
+    })
+
+
 @app.route('/health', methods=['GET'])
 def health():
     return jsonify({
