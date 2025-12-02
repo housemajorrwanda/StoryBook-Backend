@@ -381,11 +381,11 @@ chmod +x start-local-ai.sh
 
 ## Next Steps
 
-1. ✅ Start all AI services
-2. ✅ Update `.env` with local URLs
-3. ✅ Test with a testimony
-4. ✅ Check connections in database
-5. ✅ Query related testimonies via API
+1. Start all AI services
+2. Update `.env` with local URLs
+3. Test with a testimony
+4. Check connections in database
+5. Query related testimonies via API
 
 Your AI connection system is now running locally! 🎉
 
