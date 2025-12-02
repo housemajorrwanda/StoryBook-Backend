@@ -36,12 +36,33 @@ export class TestimonyAiService {
 
       if (needsTranscript) {
         const mediaUrl = testimony.audioUrl ?? testimony.videoUrl ?? null;
+        const mediaType =
+          testimony.submissionType === 'video' ? 'video' : 'audio';
+        // Get duration - audio for audio files, video for video files
+        const mediaDurationSeconds =
+          testimony.submissionType === 'video'
+            ? (testimony.videoDuration ?? undefined)
+            : (testimony.audioDuration ?? undefined);
+
         const newTranscript = mediaUrl
-          ? await this.transcriptionService.transcribeFromUrl(mediaUrl)
+          ? await this.transcriptionService.transcribeFromUrl(
+              mediaUrl,
+              mediaDurationSeconds,
+              mediaType,
+            )
           : null;
 
         if (newTranscript) {
           transcript = newTranscript;
+          this.logger.log(
+            `Successfully generated transcript for ${mediaType} testimony ${testimonyId}`,
+          );
+        } else {
+          this.logger.warn(
+            `Failed to generate transcript for ${mediaType} testimony ${testimonyId}. ` +
+              `Media URL: ${mediaUrl ? 'present' : 'missing'}, Duration: ${mediaDurationSeconds ? `${(mediaDurationSeconds / 60).toFixed(1)} min` : 'unknown'}. ` +
+              `Check transcription service logs for details.`,
+          );
         }
       }
 

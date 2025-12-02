@@ -606,6 +606,58 @@ export class TestimonyController {
     );
   }
 
+  @Get(':id/transcript')
+  @ApiOperation({
+    summary: 'Get transcript for a testimony',
+    description:
+      'Returns the transcript text for audio or video testimonies. Returns detailed status information including whether transcription is complete, pending, or unavailable.',
+  })
+  @ApiParam({
+    name: 'id',
+    type: Number,
+    description: 'The testimony ID',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Transcript retrieved successfully with status information',
+    schema: {
+      type: 'object',
+      properties: {
+        id: { type: 'number' },
+        transcript: {
+          type: 'string',
+          nullable: true,
+          description: 'The transcript text (null if not available)',
+        },
+        hasTranscript: {
+          type: 'boolean',
+          description: 'Whether transcript exists',
+        },
+        submissionType: {
+          type: 'string',
+          description: 'Type of testimony (written, audio, video)',
+        },
+        canHaveTranscript: {
+          type: 'boolean',
+          description: 'Whether this testimony type can have a transcript',
+        },
+        hasMedia: {
+          type: 'boolean',
+          description: 'Whether media file (audio/video) exists',
+        },
+        transcriptStatus: {
+          type: 'string',
+          description:
+            'Status message: "available", "pending - transcription is processing...", "unavailable - no media file found", or "not applicable - written testimonies do not have transcripts"',
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 404, description: 'Testimony not found' })
+  async getTranscript(@Param('id', TestimonyIdPipe) id: number) {
+    return await this.testimonyService.getTranscript(id);
+  }
+
   @Get(':id/comparison')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')

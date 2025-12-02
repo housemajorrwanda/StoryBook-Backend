@@ -1006,6 +1006,68 @@ export class TestimonyService {
     }
   }
 
+  async getTranscript(id: number) {
+    if (!id || id <= 0) {
+      throw new BadRequestException('Invalid testimony ID');
+    }
+
+    try {
+      const testimony = await this.prisma.testimony.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          transcript: true,
+          submissionType: true,
+          audioUrl: true,
+          videoUrl: true,
+        },
+      });
+
+      if (!testimony) {
+        throw new NotFoundException('Testimony not found');
+      }
+
+      const hasTranscript = !!testimony.transcript;
+      const canHaveTranscript =
+        testimony.submissionType === 'audio' ||
+        testimony.submissionType === 'video';
+
+      let transcriptStatus = 'available';
+      if (!hasTranscript && canHaveTranscript) {
+        if (testimony.audioUrl || testimony.videoUrl) {
+          transcriptStatus =
+            'pending - transcription is processing or not yet started. Check back later.';
+        } else {
+          transcriptStatus = 'unavailable - no media file found';
+        }
+      } else if (!canHaveTranscript) {
+        transcriptStatus =
+          'not applicable - written testimonies do not have transcripts';
+      }
+
+      return {
+        id: testimony.id,
+        transcript: testimony.transcript ?? null,
+        hasTranscript,
+        submissionType: testimony.submissionType,
+        canHaveTranscript,
+        hasMedia: !!(testimony.audioUrl || testimony.videoUrl),
+        transcriptStatus,
+      };
+    } catch (error: unknown) {
+      if (
+        error &&
+        typeof error === 'object' &&
+        'status' in error &&
+        (error.status === 400 || error.status === 404)
+      ) {
+        throw error;
+      }
+      console.error('Error fetching transcript:', error);
+      throw new InternalServerErrorException('Failed to fetch transcript');
+    }
+  }
+
   async updateStatus(
     id: number,
     status: string,
