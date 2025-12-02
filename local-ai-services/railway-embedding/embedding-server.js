@@ -49,6 +49,18 @@ app.post('/embeddings', async (req, res) => {
   }
 });
 
+app.get('/', (req, res) => {
+  res.json({
+    status: 'ok',
+    service: 'embedding-server',
+    endpoints: {
+      health: '/health',
+      embeddings: '/embeddings (POST)',
+    },
+    ollama_url: OLLAMA_URL,
+  });
+});
+
 app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
