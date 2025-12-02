@@ -20,6 +20,8 @@ cp .env.example .env
 ```
 
 Update `.env` with your PostgreSQL connection:
+
+**Local Development:**
 ```env
 DATABASE_URL="postgresql://username:password@localhost:5432/housemajor?schema=public"
 JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
@@ -30,7 +32,26 @@ AI_EMBEDDING_URL=http://localhost:8085/embeddings
 AI_EMBEDDING_MODEL=nomic-embed-text
 AI_TRANSCRIBE_URL=http://localhost:8084/transcribe
 AI_TRANSCRIBE_MODEL=faster-whisper-large-v3
-AI_HTTP_TIMEOUT=20000
+AI_HTTP_TIMEOUT=120000  # 120 seconds default (2 minutes). Timeout is auto-calculated based on file duration (2x real-time + 120s buffer)
+```
+
+**Railway Production:**
+```env
+DATABASE_URL="postgresql://user:password@your-postgres.up.railway.app:5432/railway"
+JWT_SECRET=your-production-jwt-secret
+JWT_EXPIRES_IN=24h
+PORT=3009
+NODE_ENV=production
+AI_EMBEDDING_URL=https://your-embedding-service.up.railway.app/embeddings
+AI_EMBEDDING_MODEL=nomic-embed-text
+AI_TRANSCRIBE_URL=https://your-transcription-service.up.railway.app/transcribe
+AI_TRANSCRIBE_MODEL=large-v3
+AI_HTTP_TIMEOUT=300000  # 5 minutes for production (or higher for longer files)
+```
+
+**Note:** The embedding server service on Railway also needs its own environment variable:
+```env
+OLLAMA_URL=http://ollama.railway.internal:11434  # or your Ollama service URL
 ```
 
 ### 2. Database Setup
