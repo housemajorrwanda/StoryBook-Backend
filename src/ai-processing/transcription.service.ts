@@ -47,12 +47,12 @@ export class TranscriptionService {
     }
 
     // Calculate timeout based on media duration
-    // Formula: 5 seconds per minute + 60 seconds base buffer
-    // Minimum timeout: 60 seconds (for files < 1 minute)
-    // Maximum timeout: 15 minutes (900,000ms) for very long files
-    // Files longer than ~2.8 hours (168 minutes) will hit the max timeout
+    // Transcription typically takes 2x real-time processing, so we calculate:
+    // 2x media duration + 60 seconds buffer for network/processing overhead
+    // Minimum timeout: 120 seconds (for very short files)
+    // Maximum timeout: 20 minutes (1,200,000ms) for very long files
     const baseTimeout =
-      this.configService.get<number>('AI_HTTP_TIMEOUT') ?? 20000;
+      this.configService.get<number>('AI_HTTP_TIMEOUT') ?? 120000; // Default 2 minutes instead of 20s
     let timeout = baseTimeout;
 
     if (mediaDurationSeconds) {
@@ -64,29 +64,31 @@ export class TranscriptionService {
         );
       }
 
-      // Calculate timeout: 5 seconds per minute + 60 seconds buffer
-      const calculatedTimeout =
-        Math.ceil(mediaDurationSeconds / 60) * 5000 + 60000;
+      // Calculate timeout: 2x real-time processing + 120 seconds buffer for safety
+      // This accounts for: download time, transcription processing, and network latency
+      const estimatedProcessingTime = mediaDurationSeconds * 2; // 2x real-time processing
+      const calculatedTimeout = (estimatedProcessingTime + 120) * 1000; // Add 120s buffer, convert to ms
       
-      // Use the higher of: base timeout or calculated timeout, but cap at 15 minutes
-      timeout = Math.max(baseTimeout, Math.min(calculatedTimeout, 900000));
+      // Use the higher of: base timeout or calculated timeout, but cap at 20 minutes
+      const maxTimeout = 1200000; // 20 minutes
+      timeout = Math.max(baseTimeout, Math.min(calculatedTimeout, maxTimeout));
       
       this.logger.log(
-        `Transcribing ${mediaType}: ${mediaDurationSeconds}s (${durationMinutes.toFixed(1)} min) with timeout ${(timeout / 1000).toFixed(0)}s`,
+        `Transcribing ${mediaType}: ${mediaDurationSeconds}s (${durationMinutes.toFixed(1)} min) with timeout ${(timeout / 1000).toFixed(0)}s (estimated processing: ~${estimatedProcessingTime.toFixed(0)}s)`,
       );
 
-      // Warn if file might still timeout
-      // If transcription typically takes 2x the media duration, we need at least that
-      const estimatedProcessingTime = mediaDurationSeconds * 2; // 2x real-time processing
-      if (estimatedProcessingTime > timeout / 1000) {
-        const maxSupportedDuration = (timeout / 1000 / 2).toFixed(0);
+      // Warn if file might still timeout (shouldn't happen with new calculation, but keep for safety)
+      if (estimatedProcessingTime + 60 > timeout / 1000) {
+        const maxSupportedDuration = ((timeout / 1000 - 120) / 2).toFixed(0);
         this.logger.warn(
           `Warning: ${mediaType} file (${mediaDurationSeconds}s) may exceed timeout. Maximum reliably supported duration: ~${maxSupportedDuration} seconds (~${(Number(maxSupportedDuration) / 60).toFixed(1)} minutes)`,
         );
       }
     } else {
+      // No duration provided - use a generous default timeout
+      timeout = Math.max(baseTimeout, 300000); // At least 5 minutes if no duration
       this.logger.warn(
-        `No duration provided for ${mediaType} file. Using default timeout of ${baseTimeout}ms. This may cause timeouts for longer files.`,
+        `No duration provided for ${mediaType} file. Using timeout of ${(timeout / 1000).toFixed(0)}s. This may cause timeouts for longer files.`,
       );
     }
 
@@ -170,10 +172,51 @@ export class TranscriptionService {
         errorMessage = String(error.message);
       }
 
-      this.logger.error(
-        `[TRANSCRIPTION FAILED] Failed to transcribe ${mediaType} file (${mediaDurationSeconds ? `${(mediaDurationSeconds / 60).toFixed(1)} min` : 'unknown duration'}). ` +
-          `Error details: ${errorMessage}. File URL: ${sourceUrl.substring(0, 100)}...`,
-      );
+      // Check for connection closed errors (499-like behavior)
+      const errorMessageLower = errorMessage.toLowerCase();
+      const isConnectionClosed =
+        errorMessageLower.includes('closed') ||
+        errorMessageLower.includes('canceled') ||
+        errorMessageLower.includes('aborted') ||
+        errorMessageLower.includes('econnreset') ||
+        (error && typeof error === 'object' && 'response' in error);
+
+      // Check if it's an HTTP error response (e.g., 499, 504)
+      let httpStatus: number | undefined;
+      if (
+        error &&
+        typeof error === 'object' &&
+        'response' in error &&
+        error.response &&
+        typeof error.response === 'object' &&
+        'status' in error.response
+      ) {
+        httpStatus = Number(error.response.status);
+      }
+
+      if (httpStatus === 499 || (isConnectionClosed && !httpStatus)) {
+        const durationMinutes = mediaDurationSeconds
+          ? (mediaDurationSeconds / 60).toFixed(1)
+          : 'unknown';
+        this.logger.error(
+          `[CONNECTION CLOSED] Client or proxy closed connection before transcription completed for ${mediaType} file (${durationMinutes} min). ` +
+            `This often happens when: 1) Request exceeds Railway/proxy timeout limits (typically 60-120s), ` +
+            `2) Client timeout is too short, 3) Network interruption. ` +
+            `Transcription may have completed on the server. Consider checking transcription server logs. ` +
+            `Current timeout was ${(timeout / 1000).toFixed(0)}s.`,
+        );
+      } else if (httpStatus === 504 || httpStatus === 502) {
+        this.logger.error(
+          `[GATEWAY TIMEOUT] Proxy or gateway timed out while waiting for transcription service. ` +
+            `The transcription service may still be processing. Consider: 1) Increasing proxy timeout, ` +
+            `2) Making transcription truly async with a job queue, 3) Checking transcription server status.`,
+        );
+      } else {
+        this.logger.error(
+          `[TRANSCRIPTION FAILED] Failed to transcribe ${mediaType} file (${mediaDurationSeconds ? `${(mediaDurationSeconds / 60).toFixed(1)} min` : 'unknown duration'}). ` +
+            `Error details: ${errorMessage}. File URL: ${sourceUrl.substring(0, 100)}...`,
+        );
+      }
 
       return null;
     }
