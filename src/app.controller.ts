@@ -21,24 +21,38 @@ export class AppController {
 
   @Get('health')
   async getHealth() {
-    const health = {
+    const health: {
+      status: string;
+      timestamp: string;
+      uptime: number;
+      database?: string;
+      databaseError?: string;
+    } = {
       status: 'ok',
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
     };
 
+    // Check database connection with timeout (non-blocking for healthcheck)
     try {
-      await this.prisma.$queryRaw`SELECT 1`;
-      return {
-        ...health,
-        database: 'connected',
-      };
+      // Use Promise.race to add timeout to database check
+      const dbCheck = this.prisma.$queryRaw`SELECT 1`;
+      const timeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Database check timeout')), 2000),
+      );
+
+      await Promise.race([dbCheck, timeout]);
+      health.database = 'connected';
     } catch (error) {
-      return {
-        ...health,
-        database: 'disconnected',
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
+      // Database check failed or timed out - log but don't fail healthcheck
+      health.database = 'disconnected';
+      if (error instanceof Error) {
+        health.databaseError = error.message;
+      }
     }
+
+    // Always return 200 OK - Railway just needs to know the HTTP service is responding
+    // Database connection issues are handled gracefully by the application
+    return health;
   }
 }
