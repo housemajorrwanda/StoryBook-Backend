@@ -35,8 +35,8 @@ export class PrismaService
   }
 
   /**
-   * Add connection pooling parameters to DATABASE_URL for Railway
-   * This helps prevent "Connection reset by peer" errors
+   * Get database URL - use as-is from environment
+   * Prisma handles connection pooling internally, we don't need to add parameters
    * Static method to avoid 'this' access before super()
    */
   private static getDatabaseUrlWithPooling(): string | undefined {
@@ -45,20 +45,11 @@ export class PrismaService
       return undefined;
     }
 
-    // If URL already has query parameters, append to them
-    // Otherwise add new query parameters
-    const hasQueryParams = databaseUrl.includes('?');
-    const separator = hasQueryParams ? '&' : '?';
-
-    // Connection pooling parameters for Railway/PostgreSQL
-    const poolParams = [
-      'connection_limit=10', // Limit concurrent connections
-      'pool_timeout=20', // Timeout for getting connection from pool
-      'connect_timeout=10', // Connection timeout in seconds
-      'pgbouncer=true', // Enable pgbouncer compatibility (if using connection pooler)
-    ].join('&');
-
-    return `${databaseUrl}${separator}${poolParams}`;
+    // Return the DATABASE_URL as-is
+    // Prisma handles connection pooling internally
+    // Adding query parameters to PostgreSQL connection strings can cause errors
+    // like "unrecognized configuration parameter"
+    return databaseUrl;
   }
 
   async onModuleInit() {
