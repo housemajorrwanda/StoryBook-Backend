@@ -262,23 +262,9 @@ export class TestimonyController {
     // Upload images if provided
     const imageFiles = files?.images;
     if (imageFiles && Array.isArray(imageFiles) && imageFiles.length > 0) {
-      console.log(
-        `[Testimony] Attempting to upload ${imageFiles.length} image(s)`,
-      );
-      imageFiles.forEach((file, idx) => {
-        console.log(
-          `[Testimony] Image ${idx + 1}: ${file.originalname} (${file.size} bytes, ${file.mimetype})`,
-        );
-      });
-
       try {
         const uploaded =
           await this.uploadService.uploadMultipleImages(imageFiles);
-
-        // Log upload results summary
-        console.log(
-          `[Testimony] Upload results: ${uploaded.successful.length} successful, ${uploaded.failed.length} failed`,
-        );
 
         // Check if any uploads failed
         if (uploaded.failed.length > 0) {
@@ -298,12 +284,6 @@ export class TestimonyController {
             `[Testimony] Testimony will be created without images. Check Cloudinary configuration and file validation.`,
           );
         } else {
-          // Log successful uploads
-          console.log(
-            `[Testimony] Successfully uploaded images:`,
-            uploaded.successful.map((s) => `  - ${s.fileName} -> ${s.url}`),
-          );
-
           const rawDescriptions =
             (body as Record<string, unknown>)['imagesDescriptions'] ??
             (body as Record<string, unknown>)['imageDescriptions'];
@@ -349,10 +329,6 @@ export class TestimonyController {
                 : undefined,
             order: index,
           }));
-
-          console.log(
-            `[Testimony] Prepared ${dto.images.length} image(s) for database storage`,
-          );
         }
       } catch (error) {
         console.error('[Testimony] Error uploading images:', error);
@@ -363,18 +339,16 @@ export class TestimonyController {
         console.error(
           `[Testimony] Testimony will be created without images due to upload error.`,
         );
-        // Don't throw - allow testimony to be created without images
       }
     } else {
-      // Log when no images are provided (for debugging)
       if (!files?.images) {
-        console.log('[Testimony] No images field in files object');
+        // No images field in files object
       } else if (!Array.isArray(files.images)) {
         console.warn(
           `[Testimony] Images field is not an array: ${typeof files.images}`,
         );
       } else if (files.images.length === 0) {
-        console.log('[Testimony] Images array is empty');
+        // Images array is empty
       }
     }
 
