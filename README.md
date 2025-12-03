@@ -37,7 +37,14 @@ AI_HTTP_TIMEOUT=120000  # 120 seconds default (2 minutes). Timeout is auto-calcu
 
 **Railway Production:**
 ```env
-DATABASE_URL="postgresql://user:password@your-postgres.up.railway.app:5432/railway"
+# ⚠️ IMPORTANT: DATABASE_URL is automatically provided by Railway when you add PostgreSQL service
+# DO NOT manually set this - Railway injects it automatically
+# If you see "postgres.railway.internal:5432" error, check:
+# 1. PostgreSQL service is added to your Railway project
+# 2. Services are properly linked (same project/workspace)
+# 3. DATABASE_URL environment variable exists in Railway dashboard
+
+DATABASE_URL=<automatically-provided-by-railway>  # Railway sets this automatically!
 JWT_SECRET=your-production-jwt-secret
 JWT_EXPIRES_IN=24h
 PORT=3009
