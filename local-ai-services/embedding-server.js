@@ -34,16 +34,16 @@ app.post('/embeddings', async (req, res) => {
             throw new Error('Invalid response from Ollama - missing embedding');
           }
 
-          console.log(`✅ Generated embedding ${index + 1}/${texts.length} (dimension: ${response.data.embedding.length})`);
+          console.log(`Generated embedding ${index + 1}/${texts.length} (dimension: ${response.data.embedding.length})`);
           return { embedding: response.data.embedding };
         } catch (error) {
           const errorMsg = error.response?.data?.error || error.message;
           const statusCode = error.response?.status;
-          console.error(`❌ Error embedding text ${index + 1}:`, errorMsg);
+          console.error(`Error embedding text ${index + 1}:`, errorMsg);
           if (statusCode === 404) {
-            console.error(`   → Ollama endpoint not found. Check: 1) Ollama is running, 2) Model '${model}' is available (run: ollama pull ${model}), 3) OLLAMA_URL is correct (currently: ${OLLAMA_URL})`);
+            console.error(`Ollama endpoint not found. Check: 1) Ollama is running, 2) Model '${model}' is available (run: ollama pull ${model}), 3) OLLAMA_URL is correct (currently: ${OLLAMA_URL})`);
           } else if (statusCode) {
-            console.error(`   → HTTP ${statusCode} error from Ollama`);
+            console.error(`HTTP ${statusCode} error from Ollama`);
           }
           throw error;
         }
@@ -52,7 +52,7 @@ app.post('/embeddings', async (req, res) => {
 
     res.json({ data: embeddings });
   } catch (error) {
-    console.error('❌ Embedding error:', error.message);
+    console.error('Embedding error:', error.message);
     res.status(500).json({
       error: error.message,
       details: error.response?.data || null,
@@ -87,7 +87,7 @@ app.get('/health', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`✅ Embedding server running on http://localhost:${PORT}`);
+  console.log(`Embedding server running on http://localhost:${PORT}`);
   console.log(`   Ollama URL: ${OLLAMA_URL}`);
   console.log(`   Test: curl http://localhost:${PORT}/health`);
 });

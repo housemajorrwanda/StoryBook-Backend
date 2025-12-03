@@ -26,8 +26,6 @@ def transcribe():
     try:
         data = request.json
         audio_url = data.get('audioUrl')
-        # Note: Model is loaded at startup, we ignore the 'model' parameter in request
-
         if not audio_url:
             return jsonify({"error": "audioUrl required"}), 400
 
