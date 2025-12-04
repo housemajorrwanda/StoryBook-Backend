@@ -9,6 +9,21 @@ app.use(cors());
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
 const PORT = process.env.PORT || 8085;
 
+async function wakeUpOllama() {
+  try {
+    // Send a lightweight request to wake up Ollama
+    // Using /api/tags is fast and doesn't require model loading
+    // This prevents Railway from suspending the container and keeps models in memory
+    await axios.get(`${OLLAMA_URL}/api/tags`, {
+      timeout: 2000,
+    }).catch(() => {
+      // Ignore errors - this is just a wake-up call
+    });
+  } catch (error) {
+    // Ignore wake-up errors
+  }
+}
+
 app.post('/embeddings', async (req, res) => {
   try {
     const { input, model = 'nomic-embed-text' } = req.body;
@@ -18,6 +33,10 @@ app.post('/embeddings', async (req, res) => {
       `📊 Generating embeddings for ${texts.length} text(s) using ${model}...`,
     );
 
+    // Wake up Ollama before processing (prevents idle/sleep issues)
+    console.log('🔔 Waking up Ollama before embedding request...');
+    await wakeUpOllama();
+
     const embeddings = await Promise.all(
       texts.map(async (text, index) => {
         try {
@@ -25,7 +44,7 @@ app.post('/embeddings', async (req, res) => {
             model: model,
             prompt: text,
           }, {
-            timeout: 10000, 
+            timeout: 60000, // 60 second timeout for embedding generation
           });
 
           
