@@ -40,6 +40,20 @@ export class EmbeddingProviderService {
     return this.modelName;
   }
 
+  private async wakeUpOllama(): Promise<void> {
+    try {
+      // Try to wake up Ollama via the embedding server's health endpoint
+      // This triggers a lightweight request that keeps the service active
+      const healthUrl = this.baseUrl.replace('/embeddings', '/health');
+      await this.httpClient.get(healthUrl, { timeout: 3000 }).catch(() => {
+        // Health check failed, but continue anyway
+      });
+    } catch (error) {
+      // Ignore wake-up errors, just log
+      this.logger.debug('Wake-up health check failed (non-critical)', error);
+    }
+  }
+
   async embedSections(sections: EmbeddingSectionRequest[]) {
     if (!this.baseUrl) {
       throw new Error('AI_EMBEDDING_URL is not configured');
@@ -57,7 +71,11 @@ export class EmbeddingProviderService {
       input: validSections.map((section) => section.text),
     };
 
-    // Retry logic for Ollama (in case it's "sleeping" / idle)
+    // Wake up Ollama before making the request (prevents idle/sleep issues)
+    this.logger.log('Waking up Ollama before embedding request...');
+    await this.wakeUpOllama();
+
+    // Retry logic for Ollama (in case it's still "sleeping" / idle)
     const maxRetries = 3;
     let lastError: unknown = null;
 
@@ -69,6 +87,8 @@ export class EmbeddingProviderService {
             `Retrying embedding request (attempt ${attempt}/${maxRetries}) after ${delay}ms delay...`,
           );
           await new Promise((resolve) => setTimeout(resolve, delay));
+          // Wake up again before retry
+          await this.wakeUpOllama();
         }
 
         this.logger.log(
