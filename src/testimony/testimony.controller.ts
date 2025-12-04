@@ -861,4 +861,38 @@ Each connection includes an accuracy score (0-100) indicating connection strengt
       updateStatusDto.feedback,
     );
   }
+
+  @Post(':id/process-ai')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: 'Manually trigger AI processing for a testimony (admin only)',
+    description:
+      'Manually trigger transcription and embedding generation for a testimony. Useful for retrying failed processing or processing approved testimonies that were missed.',
+  })
+  @ApiParam({ name: 'id', type: Number })
+  @ApiResponse({
+    status: 200,
+    description: 'AI processing triggered successfully',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid request - testimony cannot be processed',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - admin access required',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Testimony not found',
+  })
+  async triggerAiProcessing(
+    @Param('id', TestimonyIdPipe) id: number,
+    @Request() req: { user: User & { role?: string; fullName?: string } },
+  ) {
+    const userId = this.getAuthenticatedUserId(req);
+    return this.testimonyService.triggerAiProcessing(id, userId);
+  }
 }
