@@ -20,7 +20,6 @@ export class TranscriptionService {
     this.modelName =
       this.configService.get<string>('AI_TRANSCRIBE_MODEL') ?? 'large-v3';
     const timeout = this.configService.get<number>('AI_HTTP_TIMEOUT') ?? 20000;
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     this.httpClient = axios.create({
       timeout,
       headers: { 'Content-Type': 'application/json' },
@@ -68,11 +67,11 @@ export class TranscriptionService {
       // This accounts for: download time, transcription processing, and network latency
       const estimatedProcessingTime = mediaDurationSeconds * 2; // 2x real-time processing
       const calculatedTimeout = (estimatedProcessingTime + 120) * 1000; // Add 120s buffer, convert to ms
-      
+
       // Use the higher of: base timeout or calculated timeout, but cap at 20 minutes
       const maxTimeout = 1200000; // 20 minutes
       timeout = Math.max(baseTimeout, Math.min(calculatedTimeout, maxTimeout));
-      
+
       this.logger.log(
         `Transcribing ${mediaType}: ${mediaDurationSeconds}s (${durationMinutes.toFixed(1)} min) with timeout ${(timeout / 1000).toFixed(0)}s (estimated processing: ~${estimatedProcessingTime.toFixed(0)}s)`,
       );
@@ -103,21 +102,14 @@ export class TranscriptionService {
         `Sending transcription request for ${mediaType} file: ${sourceUrl.substring(0, 50)}...`,
       );
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const response: AxiosResponse<TranscriptionResponse> =
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
         await requestClient.post<TranscriptionResponse>(this.baseUrl, {
           audioUrl: sourceUrl,
-          // Note: Model is configured in transcription server, not sent in request
         });
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const text =
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         response.data?.text ??
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         response.data?.transcript ??
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         response.data?.data ??
         null;
 
@@ -144,7 +136,7 @@ export class TranscriptionService {
             : 'unknown';
           this.logger.error(
             `[TIMEOUT] Transcription request timed out after ${timeoutSeconds}s for ${mediaType} file (${durationMinutes} min). ` +
-              `Possible causes: 1) File too long (max reliably supported: ~${((timeout / 1000 / 2) / 60).toFixed(1)} min), ` +
+              `Possible causes: 1) File too long (max reliably supported: ~${(timeout / 1000 / 2 / 60).toFixed(1)} min), ` +
               `2) Transcription server overloaded, 3) Network issues. Consider: splitting the file, increasing AI_HTTP_TIMEOUT, or checking transcription server logs.`,
           );
         } else if (errorCode === 'ENOTFOUND' || errorCode === 'ECONNREFUSED') {
@@ -164,11 +156,7 @@ export class TranscriptionService {
       let errorMessage = 'Unknown error occurred';
       if (error instanceof Error) {
         errorMessage = error.message;
-      } else if (
-        error &&
-        typeof error === 'object' &&
-        'message' in error
-      ) {
+      } else if (error && typeof error === 'object' && 'message' in error) {
         errorMessage = String(error.message);
       }
 
