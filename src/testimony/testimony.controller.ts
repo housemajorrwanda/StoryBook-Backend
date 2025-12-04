@@ -13,7 +13,11 @@ import {
   HttpStatus,
   UnauthorizedException,
   NotFoundException,
+  Res,
+  InternalServerErrorException,
 } from '@nestjs/common';
+import type { Response } from 'express';
+import axios from 'axios';
 import {
   ApiTags,
   ApiOperation,
@@ -310,7 +314,6 @@ export class TestimonyController {
                   parsed.length > 500 ? parsed.slice(0, 500) : parsed,
                 ];
               }
-              // If parsed is not an array or string, descriptions stays empty
             } catch {
               // Not JSON, treat as single string description
               const d = rawDescriptions.trim();
@@ -578,6 +581,74 @@ export class TestimonyController {
       progressSeconds,
       connectionsLimitNum,
     );
+  }
+
+  @Get(':id/transcript/stream')
+  @ApiOperation({
+    summary: 'Stream live transcription for a testimony (Server-Sent Events)',
+    description:
+      'Returns a Server-Sent Events (SSE) stream of transcription segments as they are generated. Useful for displaying live transcription with word-level highlighting synchronized with audio playback. Frontend can use EventSource API to receive real-time updates.',
+  })
+  @ApiParam({ name: 'id', type: Number })
+  @ApiResponse({
+    status: 200,
+    description: 'SSE stream of transcription segments',
+    headers: {
+      'Content-Type': { description: 'text/event-stream' },
+    },
+  })
+  @ApiResponse({ status: 404, description: 'Testimony not found' })
+  async streamTranscript(
+    @Param('id', TestimonyIdPipe) id: number,
+    @Res() res: Response,
+  ) {
+    const testimony = await this.testimonyService.findOne(id);
+
+    if (!testimony) {
+      throw new NotFoundException('Testimony not found');
+    }
+
+    const mediaUrl = testimony.audioUrl ?? testimony.videoUrl;
+    if (!mediaUrl) {
+      throw new NotFoundException('Testimony has no media file');
+    }
+
+    // Forward to transcription service streaming endpoint
+    const transcriptionBaseUrl = process.env.AI_TRANSCRIBE_URL;
+    if (!transcriptionBaseUrl) {
+      throw new InternalServerErrorException(
+        'Transcription service not configured',
+      );
+    }
+
+    const transcriptionUrl = transcriptionBaseUrl.replace(
+      '/transcribe',
+      '/transcribe/stream',
+    );
+
+    // Set SSE headers
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+
+    // Proxy the SSE stream from transcription service
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      const { data: stream } = await axios.post(
+        transcriptionUrl,
+        { audioUrl: mediaUrl },
+        { responseType: 'stream' },
+      );
+
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+      stream.pipe(res);
+    } catch {
+      res.write(
+        `data: ${JSON.stringify({ type: 'error', message: 'Failed to start transcription stream' })}\n\n`,
+      );
+      res.end();
+    }
   }
 
   @Get(':id/transcript')
