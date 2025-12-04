@@ -30,7 +30,6 @@ export class EmbeddingProviderService {
       this.configService.get<string>('AI_EMBEDDING_MODEL') ??
       'nomic-embed-text';
     const timeout = this.configService.get<number>('AI_HTTP_TIMEOUT') ?? 20000;
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     this.httpClient = axios.create({
       timeout,
       headers: { 'Content-Type': 'application/json' },
@@ -58,44 +57,79 @@ export class EmbeddingProviderService {
       input: validSections.map((section) => section.text),
     };
 
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-      const response: AxiosResponse<EmbeddingResponse> =
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-        await this.httpClient.post<EmbeddingResponse>(this.baseUrl, payload);
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-      const raw = Array.isArray(
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        response.data,
-      )
-        ? // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          response.data
-        : // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          (response.data?.data ?? null);
+    // Retry logic for Ollama (in case it's "sleeping" / idle)
+    const maxRetries = 3;
+    let lastError: unknown = null;
 
-      if (!Array.isArray(raw)) {
-        throw new Error('Embedding provider returned unexpected payload');
-      }
-
-      const vectors: Record<string, number[]> = {};
-      raw.forEach((item: EmbeddingItem, index) => {
-        const vector =
-          item?.embedding ?? item?.vector ?? item?.data ?? undefined;
-        if (!Array.isArray(vector)) {
-          this.logger.warn(
-            `Missing embedding vector for section ${validSections[index].section}`,
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        if (attempt > 1) {
+          const delay = 1000 * attempt; // 2s, 3s delays
+          this.logger.log(
+            `Retrying embedding request (attempt ${attempt}/${maxRetries}) after ${delay}ms delay...`,
           );
-          return;
+          await new Promise((resolve) => setTimeout(resolve, delay));
         }
-        vectors[validSections[index].section] = vector;
-      });
 
-      return vectors;
-    } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error';
-      this.logger.error('Failed to fetch embeddings', errorMessage);
-      throw error;
+        this.logger.log(
+          `Requesting embeddings for ${validSections.length} sections (attempt ${attempt}/${maxRetries})...`,
+        );
+
+        const response: AxiosResponse<EmbeddingResponse> =
+          await this.httpClient.post<EmbeddingResponse>(this.baseUrl, payload);
+
+        const raw = Array.isArray(response.data)
+          ? response.data
+          : (response.data?.data ?? null);
+
+        if (!Array.isArray(raw)) {
+          throw new Error('Embedding provider returned unexpected payload');
+        }
+
+        const vectors: Record<string, number[]> = {};
+        raw.forEach((item: EmbeddingItem, index) => {
+          const vector =
+            item?.embedding ?? item?.vector ?? item?.data ?? undefined;
+          if (!Array.isArray(vector)) {
+            this.logger.warn(
+              `Missing embedding vector for section ${validSections[index].section}`,
+            );
+            return;
+          }
+          vectors[validSections[index].section] = vector;
+        });
+
+        this.logger.log(
+          `Successfully generated embeddings for ${Object.keys(vectors).length} sections`,
+        );
+        return vectors;
+      } catch (error: unknown) {
+        lastError = error;
+        const errorMessage =
+          error instanceof Error ? error.message : 'Unknown error';
+        const statusCode =
+          error && typeof error === 'object' && 'response' in error
+            ? (error as { response?: { status?: number } }).response?.status
+            : undefined;
+
+        if (attempt < maxRetries) {
+          this.logger.warn(
+            `Embedding request failed (attempt ${attempt}/${maxRetries}): ${errorMessage}${statusCode ? ` (HTTP ${statusCode})` : ''}. Retrying...`,
+          );
+        } else {
+          this.logger.error(
+            `Failed to fetch embeddings after ${maxRetries} attempts: ${errorMessage}${statusCode ? ` (HTTP ${statusCode})` : ''}`,
+          );
+          if (statusCode === 500 || statusCode === 503) {
+            this.logger.warn(
+              'Ollama may be idle/sleeping. Consider: 1) Checking Ollama service status, 2) Sending a health check request to wake it up, 3) Increasing Ollama timeout settings.',
+            );
+          }
+        }
+      }
     }
+
+    // If we get here, all retries failed
+    throw lastError;
   }
 }

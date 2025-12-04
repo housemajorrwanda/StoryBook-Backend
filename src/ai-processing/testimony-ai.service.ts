@@ -19,6 +19,7 @@ export class TestimonyAiService {
   ) {}
 
   async processTestimony(testimonyId: number) {
+    this.logger.log(`Starting AI processing for testimony ${testimonyId}`);
     try {
       const testimony = await this.prisma.testimony.findUnique({
         where: { id: testimonyId },
@@ -29,12 +30,23 @@ export class TestimonyAiService {
         return;
       }
 
+      this.logger.log(
+        `Testimony ${testimonyId} found: type=${testimony.submissionType}, hasTranscript=${!!testimony.transcript}, audioUrl=${!!testimony.audioUrl}, videoUrl=${!!testimony.videoUrl}`,
+      );
+
       let transcript = testimony.transcript ?? undefined;
       const needsTranscript =
         !transcript &&
         ['audio', 'video'].includes(testimony.submissionType ?? '');
 
+      this.logger.log(
+        `Testimony ${testimonyId} transcription check: needsTranscript=${needsTranscript}, submissionType=${testimony.submissionType}, hasTranscript=${!!transcript}`,
+      );
+
       if (needsTranscript) {
+        this.logger.log(
+          `Starting transcription for testimony ${testimonyId} (${testimony.submissionType})`,
+        );
         const mediaUrl = testimony.audioUrl ?? testimony.videoUrl ?? null;
         const mediaType =
           testimony.submissionType === 'video' ? 'video' : 'audio';
@@ -44,43 +56,66 @@ export class TestimonyAiService {
             ? (testimony.videoDuration ?? undefined)
             : (testimony.audioDuration ?? undefined);
 
-        const newTranscript = mediaUrl
-          ? await this.transcriptionService.transcribeFromUrl(
-              mediaUrl,
-              mediaDurationSeconds,
-              mediaType,
-            )
-          : null;
-
-        if (newTranscript) {
-          transcript = newTranscript;
-          this.logger.log(
-            `Successfully generated transcript for ${mediaType} testimony ${testimonyId}`,
+        if (!mediaUrl) {
+          this.logger.warn(
+            `Cannot transcribe testimony ${testimonyId}: No media URL found. audioUrl=${!!testimony.audioUrl}, videoUrl=${!!testimony.videoUrl}`,
           );
         } else {
-          this.logger.warn(
-            `Failed to generate transcript for ${mediaType} testimony ${testimonyId}. ` +
-              `Media URL: ${mediaUrl ? 'present' : 'missing'}, Duration: ${mediaDurationSeconds ? `${(mediaDurationSeconds / 60).toFixed(1)} min` : 'unknown'}. ` +
-              `Check transcription service logs for details.`,
+          this.logger.log(
+            `Calling transcription service for testimony ${testimonyId}: mediaUrl=${mediaUrl.substring(0, 50)}..., duration=${mediaDurationSeconds ? `${(mediaDurationSeconds / 60).toFixed(1)} min` : 'unknown'}, type=${mediaType}`,
           );
+          try {
+            const newTranscript =
+              await this.transcriptionService.transcribeFromUrl(
+                mediaUrl,
+                mediaDurationSeconds,
+                mediaType,
+              );
+            this.logger.log(
+              `Transcription service returned for testimony ${testimonyId}: ${
+                newTranscript
+                  ? `transcript length=${newTranscript.length}`
+                  : 'null/empty'
+              }`,
+            );
+
+            if (newTranscript) {
+              transcript = newTranscript;
+              this.logger.log(
+                `Successfully generated transcript for ${mediaType} testimony ${testimonyId}`,
+              );
+            } else {
+              this.logger.warn(
+                `Transcription service returned null/empty for ${mediaType} testimony ${testimonyId}. ` +
+                  `Media URL: ${mediaUrl ? 'present' : 'missing'}, Duration: ${mediaDurationSeconds ? `${(mediaDurationSeconds / 60).toFixed(1)} min` : 'unknown'}. ` +
+                  `Check transcription service logs for details.`,
+              );
+            }
+          } catch (transcriptionError) {
+            this.logger.error(
+              `Transcription failed for testimony ${testimonyId}:`,
+              transcriptionError instanceof Error
+                ? transcriptionError
+                : new Error(String(transcriptionError)),
+            );
+            // Continue processing even if transcription fails
+          }
         }
-      }
-
-      const sections = this.buildEmbeddingSections(testimony, transcript);
-      if (sections.length === 0) {
-        this.logger.warn(
-          `Skipping embeddings for testimony ${testimonyId} - no text content`,
+      } else {
+        this.logger.log(
+          `Skipping transcription for testimony ${testimonyId}: needsTranscript=false (hasTranscript=${!!transcript}, submissionType=${testimony.submissionType})`,
         );
-        return;
       }
 
-      const vectors = await this.embeddingProvider.embedSections(sections);
-      const entries = Object.entries(vectors);
-
+      // Save transcript FIRST, independently of embeddings
+      // This ensures transcript is saved even if embeddings fail
       const updateData: Record<string, unknown> = {};
 
       if (transcript && transcript !== testimony.transcript) {
         updateData.transcript = transcript;
+        this.logger.log(
+          `Preparing to save transcript for testimony ${testimonyId} (length: ${transcript.length})`,
+        );
       }
 
       const summarySource =
@@ -105,33 +140,82 @@ export class TestimonyAiService {
         updateData.keyPhrases = this.extractKeyPhrases(keyPhrasesSource);
       }
 
-      await this.prisma.$transaction(async (tx) => {
-        if (entries.length > 0) {
-          const sectionsToReplace = entries.map(([section]) => section);
-          await tx.testimonyEmbedding.deleteMany({
-            where: {
-              testimonyId,
-              section: { in: sectionsToReplace },
-            },
-          });
-
-          await tx.testimonyEmbedding.createMany({
-            data: entries.map(([section, vector]) => ({
-              testimonyId,
-              section,
-              model: this.embeddingProvider.getModelName(),
-              vector,
-            })),
-          });
-        }
-
-        if (Object.keys(updateData).length > 0) {
-          await tx.testimony.update({
+      // Save transcript and metadata FIRST (even if embeddings fail)
+      if (Object.keys(updateData).length > 0) {
+        try {
+          await this.prisma.testimony.update({
             where: { id: testimonyId },
             data: updateData,
           });
+          this.logger.log(
+            `Successfully saved transcript and metadata for testimony ${testimonyId}`,
+          );
+        } catch (updateError) {
+          this.logger.error(
+            `Failed to save transcript for testimony ${testimonyId}:`,
+            updateError instanceof Error
+              ? updateError
+              : new Error(String(updateError)),
+          );
+          // Don't throw - continue to try embeddings
         }
-      });
+      }
+
+      // Now try embeddings (separate from transcript saving)
+      const sections = this.buildEmbeddingSections(testimony, transcript);
+      if (sections.length === 0) {
+        this.logger.warn(
+          `Skipping embeddings for testimony ${testimonyId} - no text content`,
+        );
+        return;
+      }
+
+      try {
+        this.logger.log(
+          `Starting embedding generation for testimony ${testimonyId} (${sections.length} sections)`,
+        );
+        const vectors = await this.embeddingProvider.embedSections(sections);
+        const entries = Object.entries(vectors);
+
+        if (entries.length > 0) {
+          await this.prisma.$transaction(async (tx) => {
+            const sectionsToReplace = entries.map(([section]) => section);
+            await tx.testimonyEmbedding.deleteMany({
+              where: {
+                testimonyId,
+                section: { in: sectionsToReplace },
+              },
+            });
+
+            await tx.testimonyEmbedding.createMany({
+              data: entries.map(([section, vector]) => ({
+                testimonyId,
+                section,
+                model: this.embeddingProvider.getModelName(),
+                vector,
+              })),
+            });
+          });
+          this.logger.log(
+            `Successfully saved embeddings for testimony ${testimonyId} (${entries.length} sections)`,
+          );
+        } else {
+          this.logger.warn(
+            `No embedding vectors generated for testimony ${testimonyId}`,
+          );
+        }
+      } catch (embeddingError) {
+        this.logger.error(
+          `Failed to generate/save embeddings for testimony ${testimonyId}:`,
+          embeddingError instanceof Error
+            ? embeddingError
+            : new Error(String(embeddingError)),
+        );
+        // Don't throw - transcript is already saved, embeddings can be retried later
+        this.logger.warn(
+          `Testimony ${testimonyId} transcript saved successfully, but embeddings failed. Embeddings can be regenerated later.`,
+        );
+      }
 
       this.logger.log(`Finished AI processing for testimony ${testimonyId}`);
 

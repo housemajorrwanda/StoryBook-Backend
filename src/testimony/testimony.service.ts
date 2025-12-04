@@ -1170,14 +1170,20 @@ export class TestimonyService {
       }
 
       if (status === 'approved') {
+        console.log(
+          `[TestimonyService] Approving testimony ${testimony.id}, triggering AI processing...`,
+        );
         void this.testimonyAiService
           .processTestimony(testimony.id)
-          .catch((err) =>
-            console.warn(
-              `Failed to enqueue AI processing for testimony ${testimony.id}:`,
+          .catch((err) => {
+            console.error(
+              `[TestimonyService] Failed to enqueue AI processing for testimony ${testimony.id}:`,
               err,
-            ),
-          );
+            );
+            if (err instanceof Error) {
+              console.error('Error details:', err.message, err.stack);
+            }
+          });
       }
 
       return testimony;
