@@ -1202,4 +1202,83 @@ export class TestimonyService {
       );
     }
   }
+
+  /**
+   * Manually trigger AI processing (transcription + embeddings) for a testimony
+   * Useful for retrying failed processing or processing approved testimonies that were missed
+   */
+  async triggerAiProcessing(testimonyId: number, adminId: number) {
+    if (!testimonyId || testimonyId <= 0) {
+      throw new BadRequestException('Invalid testimony ID');
+    }
+
+    if (!adminId || adminId <= 0) {
+      throw new BadRequestException('Invalid admin ID');
+    }
+
+    try {
+      const testimony = await this.prisma.testimony.findUnique({
+        where: { id: testimonyId },
+        select: {
+          id: true,
+          status: true,
+          submissionType: true,
+          audioUrl: true,
+          videoUrl: true,
+          transcript: true,
+        },
+      });
+
+      if (!testimony) {
+        throw new NotFoundException('Testimony not found');
+      }
+
+      // Check if testimony can be processed
+      const canHaveTranscript =
+        testimony.submissionType === 'audio' ||
+        testimony.submissionType === 'video';
+      const hasMedia = !!(testimony.audioUrl || testimony.videoUrl);
+
+      if (!canHaveTranscript) {
+        throw new BadRequestException(
+          'Written testimonies do not require transcription',
+        );
+      }
+
+      if (!hasMedia) {
+        throw new BadRequestException(
+          'Testimony has no media files (audio/video) to transcribe',
+        );
+      }
+
+      console.log(
+        `[TestimonyService] Manually triggering AI processing for testimony ${testimonyId} (admin: ${adminId})`,
+      );
+      console.log(
+        `[TestimonyService] Testimony status: ${testimony.status}, hasTranscript: ${!!testimony.transcript}, hasMedia: ${hasMedia}`,
+      );
+
+      // Trigger AI processing
+      await this.testimonyAiService.processTestimony(testimonyId);
+
+      return {
+        message: 'AI processing triggered successfully',
+        testimonyId,
+        status: testimony.status,
+        hasTranscript: !!testimony.transcript,
+        willProcess: true,
+      };
+    } catch (error: unknown) {
+      if (
+        error &&
+        typeof error === 'object' &&
+        'status' in error &&
+        (error.status === 400 || error.status === 404)
+      ) {
+        throw error;
+      }
+      console.error('Error triggering AI processing:', error);
+      throw new InternalServerErrorException('Failed to trigger AI processing');
+    }
+  }
 }
