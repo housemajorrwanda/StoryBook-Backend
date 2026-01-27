@@ -21,11 +21,7 @@ CLEAN_DB_URL=$(echo "$DATABASE_URL" | sed 's/:[^:]*@/:***@/')
 echo "🔗 Database URL: $CLEAN_DB_URL"
 echo "🌐 Environment: $NODE_ENV"
 
-echo "🔧 Generating Prisma client..."
-npx prisma generate || {
-    echo "❌ Failed to generate Prisma client"
-    exit 1
-}
+echo "✅ Prisma client already generated during build"
 
 # Database wait function - uses PostgreSQL client directly for better reliability
 wait_for_database() {
