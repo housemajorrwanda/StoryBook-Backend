@@ -34,7 +34,7 @@ COPY start.sh /app/start.sh
 RUN chmod +x /app/start.sh
 
 # Expose port
-EXPOSE 3009
+EXPOSE 3000
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs
@@ -46,7 +46,7 @@ USER nestjs
 
 # Health check (fixed to use the correct health endpoint)
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:3009/health || exit 1
+    CMD curl -f http://localhost:3000/health || exit 1
 
 # Start the application using the startup script
 CMD ["/app/start.sh"]
