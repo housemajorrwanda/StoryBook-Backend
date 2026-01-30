@@ -1,22 +1,15 @@
-FROM python:3.11-slim
+FROM python:3.13.7 AS builder
 
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
 WORKDIR /app
 
-# Install system dependencies for faster-whisper
-RUN apt-get update && apt-get install -y \
-    ffmpeg \
-    && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements and install Python packages
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy application code
-COPY transcription-server.py .
-
-# Expose port (Railway will set PORT env var)
-EXPOSE 8084
-
-# Run the server
-CMD ["python3", "transcription-server.py"]
-
+RUN python -m venv .venv
+COPY requirements.txt ./
+RUN .venv/bin/pip install -r requirements.txt
+FROM python:3.13.7-slim
+WORKDIR /app
+COPY --from=builder /app/.venv .venv/
+COPY . .
+CMD ["/app/.venv/bin/flask", "run", "--host=0.0.0.0", "--port=8080"]

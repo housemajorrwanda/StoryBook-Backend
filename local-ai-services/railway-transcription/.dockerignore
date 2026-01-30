@@ -1,0 +1,6 @@
+config.hcl
+andasy.hcl
+.git/
+__pycache__/
+.envrc
+.venv/
