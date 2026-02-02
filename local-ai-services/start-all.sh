@@ -54,7 +54,7 @@ EMBEDDING_PID=$!
 sleep 2
 
 # Check if embedding server started
-if ! curl -s http://localhost:8081/health > /dev/null; then
+if ! curl -s http://localhost:8085/health > /dev/null; then
     echo -e "${RED}❌ Failed to start Embedding Server${NC}"
     kill $OLLAMA_PID $EMBEDDING_PID 2>/dev/null
     exit 1
@@ -91,7 +91,7 @@ echo ""
 echo -e "${GREEN}✅ All services started!${NC}"
 echo ""
 echo "📡 Service URLs:"
-echo "   Embedding:    http://localhost:8081"
+echo "   Embedding:    http://localhost:8085"
 echo "   Transcription: http://localhost:8084"
 echo ""
 echo "📋 Process IDs:"
