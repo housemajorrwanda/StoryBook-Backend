@@ -57,14 +57,25 @@ export class PrismaService
   }
 
   /**
-   * Connect to database with retry logic for Railway deployments
+   * Connect to database with retry logic for Neon/Railway deployments
    */
   private async connectWithRetry(): Promise<void> {
     while (this.connectionRetries < this.maxRetries) {
       try {
+        // Disconnect first if connection exists but is stale
+        try {
+          await this.$disconnect();
+        } catch {
+          // Ignore disconnect errors
+        }
+
         await this.$connect();
         this.logger.log('Successfully connected to database');
         this.connectionRetries = 0; // Reset on success
+
+        // Test the connection with a simple query
+        await this.$queryRaw`SELECT 1`;
+        this.logger.log('Database connection verified with test query');
         return;
       } catch (error) {
         this.connectionRetries++;

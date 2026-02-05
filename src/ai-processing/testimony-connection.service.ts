@@ -4,8 +4,18 @@ import { PrismaService } from '../prisma/prisma.service';
 @Injectable()
 export class TestimonyConnectionService {
   private readonly logger = new Logger(TestimonyConnectionService.name);
-  private readonly SIMILARITY_THRESHOLD = 0.7;
+
+  // Enhanced tiered similarity thresholds for better accuracy
+  private readonly SIMILARITY_THRESHOLD_STRONG = 0.85; // Strong connection
+  private readonly SIMILARITY_THRESHOLD_MODERATE = 0.75; // Moderate connection
+  private readonly SIMILARITY_THRESHOLD_WEAK = 0.70; // Weak connection (minimum)
+  private readonly SIMILARITY_THRESHOLD = this.SIMILARITY_THRESHOLD_MODERATE; // Default to moderate
+
   private readonly MAX_CONNECTIONS_PER_TESTIMONY = 10;
+
+  // Weighted hybrid scoring configuration
+  private readonly SEMANTIC_WEIGHT = 0.6; // 60% weight on semantic similarity
+  private readonly RULE_BASED_WEIGHT = 0.4; // 40% weight on rule-based matches
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -84,8 +94,15 @@ export class TestimonyConnectionService {
       );
       edges.push(...ruleBasedEdges);
 
+      // 3. Apply weighted hybrid scoring - combine semantic + rule-based scores
+      const hybridEdges = this.applyHybridScoring(
+        edges,
+        semanticEdges,
+        ruleBasedEdges,
+      );
+
       // Remove duplicates and keep highest score
-      const uniqueEdges = this.deduplicateEdges(edges);
+      const uniqueEdges = this.deduplicateEdges(hybridEdges);
 
       // Create edges in database
       if (uniqueEdges.length > 0) {
@@ -106,7 +123,8 @@ export class TestimonyConnectionService {
   }
 
   /**
-   * Find semantic connections using embedding similarity
+   * Find semantic connections using multi-vector embedding similarity
+   * Improved version: compares ALL embedding sections and uses weighted average
    */
   private findSemanticConnections(
     testimony: {
@@ -126,38 +144,94 @@ export class TestimonyConnectionService {
       source: string;
     }> = [];
 
-    // Get primary embedding (prefer fullTestimony or transcript, fallback to description)
-    const primaryEmbedding = this.getPrimaryEmbedding(testimony.embeddings);
-    if (!primaryEmbedding) {
+    if (testimony.embeddings.length === 0) {
       return edges;
     }
 
     for (const other of otherTestimonies) {
-      const otherPrimaryEmbedding = this.getPrimaryEmbedding(other.embeddings);
-      if (!otherPrimaryEmbedding) {
+      if (other.embeddings.length === 0) {
         continue;
       }
 
-      const similarity = this.cosineSimilarity(
-        primaryEmbedding.vector,
-        otherPrimaryEmbedding.vector,
+      // Multi-vector comparison across all sections
+      const similarity = this.calculateMultiVectorSimilarity(
+        testimony.embeddings,
+        other.embeddings,
       );
 
-      if (similarity >= this.SIMILARITY_THRESHOLD) {
-        edges.push({
-          fromId: testimony.id,
-          toId: other.id,
-          type: 'semantic_similarity',
-          score: similarity,
-          source: 'embedding_comparison',
-        });
+      // Determine connection strength based on tiered thresholds
+      let connectionType = 'semantic_similarity';
+      let source = 'multi_vector_comparison';
+
+      if (similarity >= this.SIMILARITY_THRESHOLD_STRONG) {
+        connectionType = 'semantic_similarity_strong';
+        source = 'multi_vector_strong';
+      } else if (similarity >= this.SIMILARITY_THRESHOLD_MODERATE) {
+        connectionType = 'semantic_similarity_moderate';
+        source = 'multi_vector_moderate';
+      } else if (similarity >= this.SIMILARITY_THRESHOLD_WEAK) {
+        connectionType = 'semantic_similarity_weak';
+        source = 'multi_vector_weak';
+      } else {
+        // Below threshold, skip
+        continue;
       }
+
+      edges.push({
+        fromId: testimony.id,
+        toId: other.id,
+        type: connectionType,
+        score: similarity,
+        source,
+      });
     }
 
     // Sort by score and take top N
     return edges
       .sort((a, b) => b.score - a.score)
       .slice(0, this.MAX_CONNECTIONS_PER_TESTIMONY);
+  }
+
+  /**
+   * Calculate similarity using multi-vector comparison
+   * Compares all embedding sections with weighted averaging
+   */
+  private calculateMultiVectorSimilarity(
+    embeddings1: Array<{ section: string; vector: number[] }>,
+    embeddings2: Array<{ section: string; vector: number[] }>,
+  ): number {
+    const sectionWeights: Record<string, number> = {
+      fullTestimony: 0.4, // Most important - full content
+      transcript: 0.4, // Equally important - transcribed content
+      description: 0.15, // Moderate importance
+      title: 0.05, // Least important but still useful
+    };
+
+    const similarities: Array<{ similarity: number; weight: number }> = [];
+
+    // Compare each section with its counterpart
+    for (const [section, weight] of Object.entries(sectionWeights)) {
+      const emb1 = embeddings1.find((e) => e.section === section);
+      const emb2 = embeddings2.find((e) => e.section === section);
+
+      if (emb1 && emb2) {
+        const similarity = this.cosineSimilarity(emb1.vector, emb2.vector);
+        similarities.push({ similarity, weight });
+      }
+    }
+
+    if (similarities.length === 0) {
+      return 0;
+    }
+
+    // Calculate weighted average
+    const totalWeight = similarities.reduce((sum, s) => sum + s.weight, 0);
+    const weightedSum = similarities.reduce(
+      (sum, s) => sum + s.similarity * s.weight,
+      0,
+    );
+
+    return weightedSum / totalWeight;
   }
 
   /**
@@ -530,6 +604,7 @@ export class TestimonyConnectionService {
     });
 
     return edges.map((edge) => ({
+      edgeId: edge.id,
       testimonyId: edge.toId,
       testimony: edge.to,
       connectionType: edge.type,
@@ -537,6 +612,73 @@ export class TestimonyConnectionService {
       rawScore: edge.score,
       source: edge.source,
       connectionReason: this.getConnectionReason(edge.type),
+      userRating: edge.userRating, // Include user rating in response
+    }));
+  }
+
+  /**
+   * Rate a connection quality (1-5 stars)
+   * This helps improve future connection accuracy
+   */
+  async rateConnection(edgeId: number, rating: number) {
+    if (rating < 1 || rating > 5) {
+      throw new Error('Rating must be between 1 and 5');
+    }
+
+    const edge = await this.prisma.testimonyEdge.update({
+      where: { id: edgeId },
+      data: { userRating: rating },
+    });
+
+    this.logger.log(
+      `Connection ${edgeId} rated ${rating}/5 (type: ${edge.type}, score: ${edge.score})`,
+    );
+
+    // Log poor ratings for analysis
+    if (rating <= 2) {
+      this.logger.warn(
+        `Poor connection rating (${rating}/5) for edge ${edgeId}: type=${edge.type}, score=${edge.score}, source=${edge.source}`,
+      );
+    }
+
+    return edge;
+  }
+
+  /**
+   * Get connection quality statistics based on user ratings
+   * Useful for tuning thresholds and weights
+   */
+  async getConnectionQualityStats() {
+    const stats = await this.prisma.$queryRaw<
+      Array<{
+        type: string;
+        avg_score: number;
+        avg_rating: number;
+        rating_count: bigint;
+        total_count: bigint;
+      }>
+    >`
+      SELECT
+        type,
+        AVG(score) as avg_score,
+        AVG(user_rating) as avg_rating,
+        COUNT(CASE WHEN user_rating IS NOT NULL THEN 1 END) as rating_count,
+        COUNT(*) as total_count
+      FROM testimony_edges
+      GROUP BY type
+      ORDER BY avg_rating DESC NULLS LAST
+    `;
+
+    return stats.map((stat) => ({
+      type: stat.type,
+      avgScore: Number(stat.avg_score),
+      avgUserRating: stat.avg_rating ? Number(stat.avg_rating) : null,
+      ratedCount: Number(stat.rating_count),
+      totalCount: Number(stat.total_count),
+      ratingPercentage:
+        Number(stat.total_count) > 0
+          ? (Number(stat.rating_count) / Number(stat.total_count)) * 100
+          : 0,
     }));
   }
 
@@ -545,7 +687,16 @@ export class TestimonyConnectionService {
    */
   private getConnectionReason(type: string): string {
     const reasons: Record<string, string> = {
+      // Semantic similarity (tiered)
+      semantic_similarity_strong:
+        'Very similar content and themes (strong match)',
+      semantic_similarity_moderate: 'Similar content and themes (good match)',
+      semantic_similarity_weak: 'Similar content and themes (weak match)',
       semantic_similarity: 'Similar content and themes',
+      // Hybrid connections
+      hybrid_connection:
+        'Strong connection (both semantic similarity and shared attributes)',
+      // Rule-based connections
       same_event: 'Share the same event',
       same_location: 'Mention the same location',
       same_person: 'Mention the same person',
@@ -559,6 +710,96 @@ export class TestimonyConnectionService {
     };
 
     return reasons[type] || 'Connected testimonies';
+  }
+
+  /**
+   * Apply weighted hybrid scoring - combine semantic and rule-based scores
+   * This gives more accurate overall connection scores
+   */
+  private applyHybridScoring(
+    allEdges: Array<{
+      fromId: number;
+      toId: number;
+      type: string;
+      score: number;
+      source: string;
+    }>,
+    semanticEdges: Array<{
+      fromId: number;
+      toId: number;
+      type: string;
+      score: number;
+      source: string;
+    }>,
+    ruleBasedEdges: Array<{
+      fromId: number;
+      toId: number;
+      type: string;
+      score: number;
+      source: string;
+    }>,
+  ) {
+    // Create maps for quick lookup
+    const semanticMap = new Map<string, number>();
+    const ruleBasedMap = new Map<string, number>();
+
+    for (const edge of semanticEdges) {
+      const key = `${edge.fromId}-${edge.toId}`;
+      semanticMap.set(key, edge.score);
+    }
+
+    for (const edge of ruleBasedEdges) {
+      const key = `${edge.fromId}-${edge.toId}`;
+      const existing = ruleBasedMap.get(key);
+      // Keep highest rule-based score if multiple rules match
+      if (!existing || edge.score > existing) {
+        ruleBasedMap.set(key, edge.score);
+      }
+    }
+
+    // Calculate hybrid scores for connections that have BOTH semantic and rule-based matches
+    const hybridEdges: Array<{
+      fromId: number;
+      toId: number;
+      type: string;
+      score: number;
+      source: string;
+    }> = [];
+
+    const processedKeys = new Set<string>();
+
+    // Process all edges and calculate hybrid scores where applicable
+    for (const edge of allEdges) {
+      const key = `${edge.fromId}-${edge.toId}`;
+
+      if (processedKeys.has(key)) {
+        continue;
+      }
+      processedKeys.add(key);
+
+      const semanticScore = semanticMap.get(key);
+      const ruleScore = ruleBasedMap.get(key);
+
+      if (semanticScore && ruleScore) {
+        // Both semantic AND rule-based match - calculate hybrid score
+        const hybridScore =
+          semanticScore * this.SEMANTIC_WEIGHT +
+          ruleScore * this.RULE_BASED_WEIGHT;
+
+        hybridEdges.push({
+          fromId: edge.fromId,
+          toId: edge.toId,
+          type: 'hybrid_connection', // Indicates both semantic + rule match
+          score: hybridScore,
+          source: `hybrid:${edge.source}`,
+        });
+      } else {
+        // Only one type of match - keep original
+        hybridEdges.push(edge);
+      }
+    }
+
+    return hybridEdges;
   }
 
   /**

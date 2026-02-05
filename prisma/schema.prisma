@@ -267,13 +267,15 @@ model TestimonyEmbedding {
 }
 
 model TestimonyEdge {
-  id        Int      @id @default(autoincrement())
-  fromId    Int
-  toId      Int
-  type      String // same_event | same_person | same_location | semantic_similarity
-  score     Float
-  source    String? // rule name / model
-  createdAt DateTime @default(now())
+  id         Int      @id @default(autoincrement())
+  fromId     Int
+  toId       Int
+  type       String // same_event | same_person | same_location | semantic_similarity
+  score      Float
+  source     String? // rule name / model
+  userRating Int? // User feedback: 1 (poor) to 5 (excellent) - null if not rated
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   from Testimony @relation("edges_from", fields: [fromId], references: [id], onDelete: Cascade)
   to   Testimony @relation("edges_to", fields: [toId], references: [id], onDelete: Cascade)
@@ -281,6 +283,7 @@ model TestimonyEdge {
   @@index([fromId])
   @@index([toId])
   @@index([type])
+  @@index([userRating])
   @@map("testimony_edges")
 }
 

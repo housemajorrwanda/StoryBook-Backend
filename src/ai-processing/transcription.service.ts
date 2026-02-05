@@ -6,6 +6,33 @@ interface TranscriptionResponse {
   text?: string;
   transcript?: string;
   data?: string;
+  language?: string;
+  duration?: number;
+  confidence?: number;
+  segments?: Array<{
+    text: string;
+    start: number;
+    end: number;
+    confidence?: number;
+    words?: Array<{
+      word: string;
+      start: number;
+      end: number;
+      confidence?: number;
+    }>;
+  }>;
+  lowConfidenceSegments?: Array<{
+    text: string;
+    confidence: number;
+    start: number;
+    end: number;
+  }>;
+  metadata?: {
+    model: string;
+    segmentCount: number;
+    hasWordTimestamps: boolean;
+    vadFilterApplied: boolean;
+  };
 }
 
 @Injectable()
@@ -120,9 +147,51 @@ export class TranscriptionService {
         return null;
       }
 
+      // Log transcription quality metrics
+      const confidence = response.data?.confidence;
+      const detectedLanguage = response.data?.language;
+      const lowConfidenceSegments = response.data?.lowConfidenceSegments || [];
+
       this.logger.log(
         `Successfully transcribed ${mediaType} file. Transcript length: ${String(text).length} characters.`,
       );
+
+      if (detectedLanguage) {
+        this.logger.log(`  Language detected: ${detectedLanguage}`);
+      }
+
+      if (confidence !== undefined && confidence !== null) {
+        const confidenceLevel =
+          confidence >= 90
+            ? 'Excellent'
+            : confidence >= 80
+              ? 'Good'
+              : confidence >= 70
+                ? 'Fair'
+                : 'Poor';
+        this.logger.log(
+          `  Transcription confidence: ${confidence.toFixed(1)}% (${confidenceLevel})`,
+        );
+      }
+
+      if (lowConfidenceSegments.length > 0) {
+        this.logger.warn(
+          `  ⚠️  ${lowConfidenceSegments.length} segment(s) have confidence < 70%. ` +
+            `These portions may be less accurate due to: background noise, unclear speech, multiple speakers, or audio quality issues.`,
+        );
+      }
+
+      // Log advanced features if available
+      const metadata = response.data?.metadata;
+      if (metadata) {
+        if (metadata.hasWordTimestamps) {
+          this.logger.log('  ✓ Word-level timestamps enabled');
+        }
+        if (metadata.vadFilterApplied) {
+          this.logger.log('  ✓ Voice Activity Detection (VAD) applied');
+        }
+      }
+
       return String(text);
     } catch (error: unknown) {
       // Enhanced error handling with detailed messages

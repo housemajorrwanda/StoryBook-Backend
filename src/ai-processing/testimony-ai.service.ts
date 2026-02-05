@@ -274,6 +274,7 @@ export class TestimonyAiService {
       .split(/\s+/)
       .filter((token) => token.length > 3);
 
+    // Expanded stopwords list for better filtering
     const stopWords = new Set([
       'this',
       'that',
@@ -301,19 +302,88 @@ export class TestimonyAiService {
       'would',
       'could',
       'should',
+      'make',
+      'made',
+      'take',
+      'took',
+      'come',
+      'came',
+      'know',
+      'knew',
+      'think',
+      'thought',
+      'said',
+      'told',
+      'like',
+      'just',
+      'very',
+      'much',
+      'more',
+      'some',
+      'such',
+      'even',
+      'most',
+      'many',
+      'these',
+      'those',
+      'other',
+      'being',
+      'does',
+      'done',
+      'going',
+      'want',
+      'wanted',
     ]);
 
-    const counts = new Map<string, number>();
+    // Simple stemming - remove common suffixes (basic lemmatization)
+    const stem = (word: string): string => {
+      // Remove plurals
+      if (word.endsWith('ies') && word.length > 4) {
+        return word.slice(0, -3) + 'y';
+      }
+      if (word.endsWith('es') && word.length > 3) {
+        return word.slice(0, -2);
+      }
+      if (word.endsWith('s') && word.length > 3) {
+        return word.slice(0, -1);
+      }
+      // Remove -ing
+      if (word.endsWith('ing') && word.length > 5) {
+        return word.slice(0, -3);
+      }
+      // Remove -ed
+      if (word.endsWith('ed') && word.length > 4) {
+        return word.slice(0, -2);
+      }
+      return word;
+    };
+
+    const counts = new Map<string, { count: number; original: string }>();
+
     normalized.forEach((token) => {
       if (stopWords.has(token)) {
         return;
       }
-      counts.set(token, (counts.get(token) ?? 0) + 1);
+
+      // Apply stemming to group related words
+      const stemmed = stem(token);
+
+      const existing = counts.get(stemmed);
+      if (existing) {
+        existing.count++;
+        // Keep the shorter version as canonical
+        if (token.length < existing.original.length) {
+          existing.original = token;
+        }
+      } else {
+        counts.set(stemmed, { count: 1, original: token });
+      }
     });
 
+    // Sort by frequency and return top key phrases
     return [...counts.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 10)
-      .map(([token]) => token);
+      .sort((a, b) => b[1].count - a[1].count)
+      .slice(0, 15) // Increased from 10 to 15 for better coverage
+      .map(([, value]) => value.original);
   }
 }
