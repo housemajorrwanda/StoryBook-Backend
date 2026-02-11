@@ -6,13 +6,15 @@ app_name = "storybook"
 
 app {
 
-  env = {}
+  env = {
+    PORT = "3000"
+  }
 
   port = 3000
 
   compute {
-    cpu      = 1
-    memory   = 512
+    cpu      = 2
+    memory   = 1024
     cpu_kind = "shared"
   }
 
