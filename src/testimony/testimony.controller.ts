@@ -732,6 +732,57 @@ export class TestimonyController {
     return this.testimonyService.getComparison(id, userId, userRole);
   }
 
+  @Get('connections/stats')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: '[Admin] Get connection quality statistics based on user ratings',
+    description:
+      'Shows avg scores, avg user ratings, and counts per connection type. Useful for tuning AI thresholds.',
+  })
+  @ApiResponse({ status: 200, description: 'Connection quality statistics' })
+  async getConnectionStats() {
+    return this.connectionService.getConnectionQualityStats();
+  }
+
+  @Get('connections/warnings')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: '[Admin] Get warnings about low-quality connection types',
+    description:
+      'Identifies connection types that users consistently rate poorly (below 3.0/5 with 10+ ratings). Includes actionable recommendations for threshold tuning.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Low-quality connection warnings',
+  })
+  async getConnectionWarnings() {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
+    return await this.connectionService.getLowQualityConnectionWarnings();
+  }
+
+  @Get('connections/mine')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: "Get AI connections for the logged-in user's testimonies",
+    description:
+      "Returns all AI-discovered connections where the logged-in user's testimonies are the source. Shows which other testimonies are related to yours and why.",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Connections for the user's testimonies",
+  })
+  async getMyConnections(
+    @Request() req: { user: User & { role?: string; fullName?: string } },
+  ) {
+    const userId = this.getAuthenticatedUserId(req);
+    return this.testimonyService.getMyConnections(userId);
+  }
+
   @Get('connections/all')
   @ApiOperation({
     summary: 'Get all AI connections in the system',
@@ -769,6 +820,256 @@ Each connection includes an accuracy score (0-100) indicating connection strengt
   async getAllConnections(@Query('limit') limit?: string) {
     const take = limit ? parseInt(limit, 10) : 50;
     return this.testimonyService.getAllConnections(take);
+  }
+
+  // ========== Semantic Search ==========
+
+  @Get('search/semantic')
+  @ApiOperation({
+    summary: 'AI-powered semantic search across testimonies',
+    description:
+      'Uses embedding vectors to find testimonies semantically similar to the search query. More accurate than keyword search for finding related content.',
+  })
+  @ApiQuery({
+    name: 'q',
+    required: true,
+    type: String,
+    description: 'Search query text',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Max results (default: 10)',
+  })
+  @ApiResponse({ status: 200, description: 'Semantic search results' })
+  async semanticSearch(
+    @Query('q') query: string,
+    @Query('limit') limit?: string,
+  ) {
+    if (!query || query.trim().length === 0) {
+      return { data: [], meta: { query: '', limit: 10, total: 0 } };
+    }
+    const take = limit ? Math.min(50, Math.max(1, parseInt(limit, 10))) : 10;
+    return this.testimonyService.semanticSearch(query, take);
+  }
+
+  // ========== Admin Analytics ==========
+
+  @Get('admin/analytics')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: '[Admin] Dashboard analytics',
+    description:
+      'Returns aggregate statistics: testimony counts by status/type, user count, connection stats, recent activity.',
+  })
+  @ApiResponse({ status: 200, description: 'Analytics data' })
+  async getAnalytics() {
+    return this.testimonyService.getAnalytics();
+  }
+
+  // ========== Trending & Most Connected ==========
+
+  @Get('trending')
+  @ApiOperation({
+    summary: 'Get trending testimonies by impressions',
+    description: 'Returns the most viewed approved testimonies.',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Max results (default: 10)',
+  })
+  @ApiResponse({ status: 200, description: 'Trending testimonies' })
+  async getTrending(@Query('limit') limit?: string) {
+    const take = limit ? Math.min(50, Math.max(1, parseInt(limit, 10))) : 10;
+    return this.testimonyService.getTrending(take);
+  }
+
+  @Get('most-connected')
+  @ApiOperation({
+    summary: 'Get testimonies with the most AI connections',
+    description:
+      'Returns testimonies that have the most connections to other testimonies, indicating central or highly relevant stories.',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Max results (default: 10)',
+  })
+  @ApiResponse({ status: 200, description: 'Most connected testimonies' })
+  async getMostConnected(@Query('limit') limit?: string) {
+    const take = limit ? Math.min(50, Math.max(1, parseInt(limit, 10))) : 10;
+    return this.testimonyService.getMostConnected(take);
+  }
+
+  // ========== Bookmarks ==========
+
+  @Get('bookmarks')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Get all bookmarked testimonies for current user' })
+  @ApiResponse({ status: 200, description: 'User bookmarks' })
+  async getBookmarks(
+    @Request() req: { user: User & { role?: string; fullName?: string } },
+  ) {
+    const userId = this.getAuthenticatedUserId(req);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return await this.testimonyService.getBookmarks(userId);
+  }
+
+  @Post(':id/bookmark')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Bookmark a testimony' })
+  @ApiParam({ name: 'id', type: Number })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: { notes: { type: 'string', nullable: true } },
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Testimony bookmarked' })
+  async addBookmark(
+    @Param('id', TestimonyIdPipe) id: number,
+    @Request() req: { user: User & { role?: string; fullName?: string } },
+    @Body() body: { notes?: string },
+  ) {
+    const userId = this.getAuthenticatedUserId(req);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return await this.testimonyService.addBookmark(userId, id, body.notes);
+  }
+
+  @Delete(':id/bookmark')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Remove a bookmark' })
+  @ApiParam({ name: 'id', type: Number })
+  @ApiResponse({ status: 200, description: 'Bookmark removed' })
+  async removeBookmark(
+    @Param('id', TestimonyIdPipe) id: number,
+    @Request() req: { user: User & { role?: string; fullName?: string } },
+  ) {
+    const userId = this.getAuthenticatedUserId(req);
+    return this.testimonyService.removeBookmark(userId, id);
+  }
+
+  // ========== Reporting / Flagging ==========
+
+  @Post(':id/report')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Report/flag a testimony',
+    description:
+      'Report a testimony for review. Reasons: inappropriate, false_info, harmful, duplicate, other.',
+  })
+  @ApiParam({ name: 'id', type: Number })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        reason: {
+          type: 'string',
+          enum: [
+            'inappropriate',
+            'false_info',
+            'harmful',
+            'duplicate',
+            'other',
+          ],
+        },
+        details: { type: 'string', nullable: true },
+      },
+      required: ['reason'],
+    },
+  })
+  @ApiResponse({ status: 201, description: 'Report created' })
+  async reportTestimony(
+    @Param('id', TestimonyIdPipe) id: number,
+    @Request() req: { user: User & { role?: string; fullName?: string } },
+    @Body() body: { reason: string; details?: string },
+  ) {
+    const userId = this.getAuthenticatedUserId(req);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return await this.testimonyService.reportTestimony(
+      userId,
+      id,
+      body.reason,
+      body.details,
+    );
+  }
+
+  @Get('admin/reports')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: '[Admin] Get all testimony reports' })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: ['pending', 'investigating', 'resolved', 'dismissed'],
+  })
+  @ApiResponse({ status: 200, description: 'List of reports' })
+  async getReports(@Query('status') status?: string) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return await this.testimonyService.getReports(status);
+  }
+
+  @Patch('admin/reports/:reportId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: '[Admin] Resolve a testimony report' })
+  @ApiParam({ name: 'reportId', type: Number })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        status: {
+          type: 'string',
+          enum: ['investigating', 'resolved', 'dismissed'],
+        },
+        adminNotes: { type: 'string', nullable: true },
+      },
+      required: ['status'],
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Report updated' })
+  async resolveReport(
+    @Param('reportId') reportId: string,
+    @Body() body: { status: string; adminNotes?: string },
+  ) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return await this.testimonyService.resolveReport(
+      parseInt(reportId, 10),
+      body.status,
+      body.adminNotes,
+    );
+  }
+
+  // ========== Duplicate Detection ==========
+
+  @Get(':id/duplicates')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: '[Admin] Check for duplicate testimonies',
+    description:
+      'Finds testimonies with similar titles or descriptions that may be duplicates.',
+  })
+  @ApiParam({ name: 'id', type: Number })
+  @ApiResponse({ status: 200, description: 'Potential duplicates' })
+  async checkDuplicates(@Param('id', TestimonyIdPipe) id: number) {
+    return this.testimonyService.checkDuplicates(id);
   }
 
   @Post(':id/discover-connections')
@@ -821,6 +1122,69 @@ Each connection includes an accuracy score (0-100) indicating connection strengt
     return {
       message: 'Connection discovery started. This may take a few moments.',
       testimonyId: id,
+    };
+  }
+
+  @Post('connections/:edgeId/rate')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Rate a connection quality (1-5 stars)',
+    description:
+      'Allows users to rate how relevant a connection is. Helps improve future AI accuracy.',
+  })
+  @ApiParam({ name: 'edgeId', type: Number })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: { rating: { type: 'number', minimum: 1, maximum: 5 } },
+      required: ['rating'],
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Connection rated' })
+  async rateConnection(
+    @Param('edgeId') edgeId: string,
+    @Body() body: { rating: number },
+  ) {
+    return this.connectionService.rateConnection(
+      parseInt(edgeId, 10),
+      body.rating,
+    );
+  }
+
+  @Post('connections/rebuild-all')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  @ApiBearerAuth('JWT-auth')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: '[Admin] Re-discover connections for all approved testimonies',
+    description:
+      'Clears all existing connections and rebuilds them from scratch. This is a heavy operation.',
+  })
+  @ApiResponse({ status: 200, description: 'Rebuild started' })
+  async rebuildAllConnections() {
+    const testimonies = await this.testimonyService.getApprovedTestimonyIds();
+
+    // Clear all existing edges
+    await this.testimonyService.clearAllConnections();
+
+    // Trigger discovery for each (non-blocking)
+    let count = 0;
+    for (const t of testimonies) {
+      void this.connectionService.discoverConnections(t.id).catch((err) => {
+        console.error(
+          `Rebuild: connection discovery failed for testimony ${t.id}:`,
+          err,
+        );
+      });
+      count++;
+    }
+
+    return {
+      message: `Connection rebuild started for ${count} testimonies. User-rated connections will be preserved. This may take a few minutes.`,
+      totalTestimonies: count,
     };
   }
 

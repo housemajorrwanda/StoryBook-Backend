@@ -1,23 +1,47 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationService } from '../notification/notification.service';
 
 @Injectable()
 export class TestimonyConnectionService {
   private readonly logger = new Logger(TestimonyConnectionService.name);
 
-  // Enhanced tiered similarity thresholds for better accuracy
-  private readonly SIMILARITY_THRESHOLD_STRONG = 0.85; // Strong connection
-  private readonly SIMILARITY_THRESHOLD_MODERATE = 0.75; // Moderate connection
-  private readonly SIMILARITY_THRESHOLD_WEAK = 0.70; // Weak connection (minimum)
-  private readonly SIMILARITY_THRESHOLD = this.SIMILARITY_THRESHOLD_MODERATE; // Default to moderate
+  // Configurable similarity thresholds (via env vars)
+  private readonly SIMILARITY_THRESHOLD_STRONG: number;
+  private readonly SIMILARITY_THRESHOLD_MODERATE: number;
+  private readonly SIMILARITY_THRESHOLD_WEAK: number;
 
   private readonly MAX_CONNECTIONS_PER_TESTIMONY = 10;
 
-  // Weighted hybrid scoring configuration
-  private readonly SEMANTIC_WEIGHT = 0.6; // 60% weight on semantic similarity
-  private readonly RULE_BASED_WEIGHT = 0.4; // 40% weight on rule-based matches
+  // Configurable hybrid scoring weights (via env vars)
+  private readonly SEMANTIC_WEIGHT: number;
+  private readonly RULE_BASED_WEIGHT: number;
 
-  constructor(private readonly prisma: PrismaService) {}
+  // Minimum keyPhrases overlap ratio before skipping expensive vector comparison
+  private readonly KEYPHRASES_MIN_OVERLAP = 0.1;
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly configService: ConfigService,
+    private readonly notificationService: NotificationService,
+  ) {
+    this.SIMILARITY_THRESHOLD_STRONG = parseFloat(
+      this.configService.get<string>('TESTIMONY_THRESHOLD_STRONG') ?? '0.85',
+    );
+    this.SIMILARITY_THRESHOLD_MODERATE = parseFloat(
+      this.configService.get<string>('TESTIMONY_THRESHOLD_MODERATE') ?? '0.75',
+    );
+    this.SIMILARITY_THRESHOLD_WEAK = parseFloat(
+      this.configService.get<string>('TESTIMONY_THRESHOLD_WEAK') ?? '0.70',
+    );
+    this.SEMANTIC_WEIGHT = parseFloat(
+      this.configService.get<string>('TESTIMONY_SEMANTIC_WEIGHT') ?? '0.6',
+    );
+    this.RULE_BASED_WEIGHT = parseFloat(
+      this.configService.get<string>('TESTIMONY_RULE_WEIGHT') ?? '0.4',
+    );
+  }
 
   /**
    * Discover and create connections for a newly processed testimony
@@ -43,6 +67,35 @@ export class TestimonyConnectionService {
           `No embeddings found for testimony ${testimonyId}, skipping connection discovery`,
         );
         return;
+      }
+
+      // Preserve edges that have user ratings instead of deleting everything
+      const ratedEdges = await this.prisma.testimonyEdge.findMany({
+        where: {
+          OR: [{ fromId: testimonyId }, { toId: testimonyId }],
+          userRating: { not: null },
+        },
+        select: {
+          id: true,
+          fromId: true,
+          toId: true,
+          userRating: true,
+          type: true,
+        },
+      });
+
+      // Only delete unrated edges
+      await this.prisma.testimonyEdge.deleteMany({
+        where: {
+          OR: [{ fromId: testimonyId }, { toId: testimonyId }],
+          userRating: null,
+        },
+      });
+
+      // Build set of rated edge keys for deduplication
+      const ratedEdgeKeys = new Set<string>();
+      for (const re of ratedEdges) {
+        ratedEdgeKeys.add(`${re.fromId}-${re.toId}`);
       }
 
       // Get all other approved testimonies with embeddings
@@ -72,6 +125,9 @@ export class TestimonyConnectionService {
         return;
       }
 
+      // Get adaptive thresholds based on user rating feedback
+      const thresholds = await this.getAdaptiveThresholds();
+
       const edges: Array<{
         fromId: number;
         toId: number;
@@ -80,10 +136,11 @@ export class TestimonyConnectionService {
         source: string;
       }> = [];
 
-      // 1. Semantic similarity based on embeddings
+      // 1. Semantic similarity based on embeddings (with keyPhrases pre-filter)
       const semanticEdges = this.findSemanticConnections(
         testimony,
         otherTestimonies,
+        thresholds,
       );
       edges.push(...semanticEdges);
 
@@ -104,15 +161,73 @@ export class TestimonyConnectionService {
       // Remove duplicates and keep highest score
       const uniqueEdges = this.deduplicateEdges(hybridEdges);
 
-      // Create edges in database
+      // Create edges in database (bidirectional: A->B and B->A)
       if (uniqueEdges.length > 0) {
-        await this.prisma.testimonyEdge.createMany({
-          data: uniqueEdges,
-          skipDuplicates: true,
-        });
+        // Separate into new edges vs edges that need score updates (already rated)
+        const newEdges: typeof uniqueEdges = [];
+        const edgesToUpdate: typeof uniqueEdges = [];
+
+        for (const edge of uniqueEdges) {
+          if (
+            ratedEdgeKeys.has(`${edge.fromId}-${edge.toId}`) ||
+            ratedEdgeKeys.has(`${edge.toId}-${edge.fromId}`)
+          ) {
+            edgesToUpdate.push(edge);
+          } else {
+            newEdges.push(edge);
+          }
+        }
+
+        // Create new edges (with reverse)
+        if (newEdges.length > 0) {
+          const reverseEdges = newEdges.map((edge) => ({
+            fromId: edge.toId,
+            toId: edge.fromId,
+            type: edge.type,
+            score: edge.score,
+            source: edge.source,
+          }));
+          await this.prisma.testimonyEdge.createMany({
+            data: [...newEdges, ...reverseEdges],
+            skipDuplicates: true,
+          });
+        }
+
+        // Update scores on rated edges (preserve userRating)
+        for (const edge of edgesToUpdate) {
+          await this.prisma.testimonyEdge.updateMany({
+            where: { fromId: edge.fromId, toId: edge.toId },
+            data: { score: edge.score, type: edge.type, source: edge.source },
+          });
+          // Also update the reverse edge
+          await this.prisma.testimonyEdge.updateMany({
+            where: { fromId: edge.toId, toId: edge.fromId },
+            data: { score: edge.score, type: edge.type, source: edge.source },
+          });
+        }
+
         this.logger.log(
-          `Created ${uniqueEdges.length} connections for testimony ${testimonyId}`,
+          `Created ${newEdges.length} new + updated ${edgesToUpdate.length} rated connections for testimony ${testimonyId}`,
         );
+
+        // Notify about strong new connections (non-blocking)
+        if (newEdges.length > 0) {
+          const strongEdges = newEdges.filter((e) => e.score >= 0.80);
+          for (const edge of strongEdges) {
+            void this.notificationService
+              .notifyAiConnectionSuggestion({
+                testimonyId: edge.fromId,
+                relatedTestimonyId: edge.toId,
+                similarityScore: edge.score,
+              })
+              .catch((err) =>
+                this.logger.warn(
+                  `Failed to send connection notification:`,
+                  err,
+                ),
+              );
+          }
+        }
       }
     } catch (error) {
       this.logger.error(
@@ -123,18 +238,112 @@ export class TestimonyConnectionService {
   }
 
   /**
+   * Calculate adaptive thresholds based on user rating feedback.
+   * If semantic connections have 20+ ratings and avg < 3.0, raise thresholds.
+   * If avg > 4.0, lower thresholds to find more good connections.
+   */
+  private async getAdaptiveThresholds(): Promise<{
+    strong: number;
+    moderate: number;
+    weak: number;
+  }> {
+    const baseThresholds = {
+      strong: this.SIMILARITY_THRESHOLD_STRONG,
+      moderate: this.SIMILARITY_THRESHOLD_MODERATE,
+      weak: this.SIMILARITY_THRESHOLD_WEAK,
+    };
+
+    try {
+      const stats = await this.prisma.$queryRaw<
+        Array<{
+          type: string;
+          avg_rating: number | null;
+          rating_count: bigint;
+        }>
+      >`
+        SELECT
+          type,
+          AVG(user_rating) as avg_rating,
+          COUNT(CASE WHEN user_rating IS NOT NULL THEN 1 END) as rating_count
+        FROM testimony_edges
+        WHERE user_rating IS NOT NULL
+        GROUP BY type
+        HAVING COUNT(CASE WHEN user_rating IS NOT NULL THEN 1 END) >= 20
+      `;
+
+      if (stats.length === 0) {
+        return baseThresholds;
+      }
+
+      // Check semantic connection types for threshold adjustments
+      const semanticTypes = stats.filter((s) =>
+        s.type.startsWith('semantic_'),
+      );
+
+      if (semanticTypes.length > 0) {
+        const avgRating =
+          semanticTypes.reduce(
+            (sum, s) => sum + Number(s.avg_rating ?? 0),
+            0,
+          ) / semanticTypes.length;
+
+        if (avgRating < 3.0) {
+          // Users find connections poor — raise thresholds
+          baseThresholds.strong = Math.min(
+            0.95,
+            baseThresholds.strong + 0.03,
+          );
+          baseThresholds.moderate = Math.min(
+            0.90,
+            baseThresholds.moderate + 0.03,
+          );
+          baseThresholds.weak = Math.min(0.85, baseThresholds.weak + 0.03);
+          this.logger.log(
+            `Adaptive thresholds: RAISED (avg semantic rating ${avgRating.toFixed(2)})`,
+          );
+        } else if (avgRating > 4.0) {
+          // Users love connections — lower thresholds to find more
+          baseThresholds.strong = Math.max(
+            0.80,
+            baseThresholds.strong - 0.02,
+          );
+          baseThresholds.moderate = Math.max(
+            0.70,
+            baseThresholds.moderate - 0.02,
+          );
+          baseThresholds.weak = Math.max(0.65, baseThresholds.weak - 0.02);
+          this.logger.log(
+            `Adaptive thresholds: LOWERED (avg semantic rating ${avgRating.toFixed(2)})`,
+          );
+        }
+      }
+
+      return baseThresholds;
+    } catch (error) {
+      this.logger.warn(
+        'Failed to compute adaptive thresholds, using defaults',
+        error,
+      );
+      return baseThresholds;
+    }
+  }
+
+  /**
    * Find semantic connections using multi-vector embedding similarity
-   * Improved version: compares ALL embedding sections and uses weighted average
+   * With keyPhrases pre-filtering and adaptive thresholds
    */
   private findSemanticConnections(
     testimony: {
       id: number;
+      keyPhrases?: string[];
       embeddings: Array<{ section: string; vector: number[] }>;
     },
     otherTestimonies: Array<{
       id: number;
+      keyPhrases?: string[];
       embeddings: Array<{ section: string; vector: number[] }>;
     }>,
+    thresholds: { strong: number; moderate: number; weak: number },
   ) {
     const edges: Array<{
       fromId: number;
@@ -153,23 +362,32 @@ export class TestimonyConnectionService {
         continue;
       }
 
+      // KeyPhrases pre-filter: skip expensive vector comparison if overlap is too low
+      const overlap = this.calculateKeyPhrasesOverlap(
+        testimony.keyPhrases ?? [],
+        other.keyPhrases ?? [],
+      );
+      if (overlap < this.KEYPHRASES_MIN_OVERLAP) {
+        continue;
+      }
+
       // Multi-vector comparison across all sections
       const similarity = this.calculateMultiVectorSimilarity(
         testimony.embeddings,
         other.embeddings,
       );
 
-      // Determine connection strength based on tiered thresholds
+      // Determine connection strength based on adaptive thresholds
       let connectionType = 'semantic_similarity';
       let source = 'multi_vector_comparison';
 
-      if (similarity >= this.SIMILARITY_THRESHOLD_STRONG) {
+      if (similarity >= thresholds.strong) {
         connectionType = 'semantic_similarity_strong';
         source = 'multi_vector_strong';
-      } else if (similarity >= this.SIMILARITY_THRESHOLD_MODERATE) {
+      } else if (similarity >= thresholds.moderate) {
         connectionType = 'semantic_similarity_moderate';
         source = 'multi_vector_moderate';
-      } else if (similarity >= this.SIMILARITY_THRESHOLD_WEAK) {
+      } else if (similarity >= thresholds.weak) {
         connectionType = 'semantic_similarity_weak';
         source = 'multi_vector_weak';
       } else {
@@ -190,6 +408,27 @@ export class TestimonyConnectionService {
     return edges
       .sort((a, b) => b.score - a.score)
       .slice(0, this.MAX_CONNECTIONS_PER_TESTIMONY);
+  }
+
+  /**
+   * Calculate keyPhrases overlap ratio between two testimonies.
+   * Returns 0.0-1.0 representing what fraction of the smaller set is shared.
+   * Returns 1.0 if either has no keyPhrases (safe fallback — don't filter).
+   */
+  private calculateKeyPhrasesOverlap(
+    phrases1: string[],
+    phrases2: string[],
+  ): number {
+    if (phrases1.length === 0 || phrases2.length === 0) {
+      return 1.0;
+    }
+
+    const set1 = new Set(phrases1.map((p) => p.toLowerCase()));
+    const set2 = new Set(phrases2.map((p) => p.toLowerCase()));
+    const intersection = [...set1].filter((p) => set2.has(p));
+    const minSize = Math.min(set1.size, set2.size);
+
+    return minSize > 0 ? intersection.length / minSize : 0;
   }
 
   /**
@@ -236,17 +475,22 @@ export class TestimonyConnectionService {
 
   /**
    * Find rule-based connections (same events, locations, dates, people)
+   * Uses confidence fields for weighted scoring
    */
   private findRuleBasedConnections(
     testimony: {
       id: number;
       relationToEvent?: string | null;
-      events: Array<{ eventId: number }>;
-      locations: Array<{ locationId: number }>;
+      events: Array<{ eventId: number; confidence?: number | null }>;
+      locations: Array<{ locationId: number; confidence?: number | null }>;
       relatives: Array<{
         personName: string;
         relativeTypeId: number;
-        relativeType?: { id: number; slug: string; displayName: string } | null;
+        relativeType?: {
+          id: number;
+          slug: string;
+          displayName: string;
+        } | null;
       }>;
       dateOfEventFrom?: Date | null;
       dateOfEventTo?: Date | null;
@@ -254,12 +498,16 @@ export class TestimonyConnectionService {
     otherTestimonies: Array<{
       id: number;
       relationToEvent?: string | null;
-      events: Array<{ eventId: number }>;
-      locations: Array<{ locationId: number }>;
+      events: Array<{ eventId: number; confidence?: number | null }>;
+      locations: Array<{ locationId: number; confidence?: number | null }>;
       relatives: Array<{
         personName: string;
         relativeTypeId: number;
-        relativeType?: { id: number; slug: string; displayName: string } | null;
+        relativeType?: {
+          id: number;
+          slug: string;
+          displayName: string;
+        } | null;
       }>;
       dateOfEventFrom?: Date | null;
       dateOfEventTo?: Date | null;
@@ -273,10 +521,17 @@ export class TestimonyConnectionService {
       source: string;
     }> = [];
 
-    const testimonyEventIds = new Set(testimony.events.map((e) => e.eventId));
-    const testimonyLocationIds = new Set(
-      testimony.locations.map((l) => l.locationId),
-    );
+    // Build event/location maps with confidence for the source testimony
+    const testimonyEventMap = new Map<number, number>();
+    testimony.events.forEach((e) => {
+      testimonyEventMap.set(e.eventId, e.confidence ?? 1.0);
+    });
+
+    const testimonyLocationMap = new Map<number, number>();
+    testimony.locations.forEach((l) => {
+      testimonyLocationMap.set(l.locationId, l.confidence ?? 1.0);
+    });
+
     // Create a map of person name -> relativeTypeId for better matching
     const testimonyPeople = new Map<
       string,
@@ -293,10 +548,17 @@ export class TestimonyConnectionService {
     });
 
     for (const other of otherTestimonies) {
-      const otherEventIds = new Set(other.events.map((e) => e.eventId));
-      const otherLocationIds = new Set(
-        other.locations.map((l) => l.locationId),
-      );
+      // Build event/location maps with confidence for the other testimony
+      const otherEventMap = new Map<number, number>();
+      other.events.forEach((e) => {
+        otherEventMap.set(e.eventId, e.confidence ?? 1.0);
+      });
+
+      const otherLocationMap = new Map<number, number>();
+      other.locations.forEach((l) => {
+        otherLocationMap.set(l.locationId, l.confidence ?? 1.0);
+      });
+
       // Create a map for other testimony's people
       const otherPeople = new Map<
         string,
@@ -312,17 +574,21 @@ export class TestimonyConnectionService {
         otherPeople.set(nameKey, existing);
       });
 
-      // Same event
-      const sharedEvents = [...testimonyEventIds].filter((id) =>
-        otherEventIds.has(id),
+      // Same event — confidence-weighted
+      const sharedEvents = [...testimonyEventMap.keys()].filter((id) =>
+        otherEventMap.has(id),
       );
       if (sharedEvents.length > 0) {
+        const eventId = sharedEvents[0];
+        const conf1 = testimonyEventMap.get(eventId) ?? 1.0;
+        const conf2 = otherEventMap.get(eventId) ?? 1.0;
+        const confidenceMultiplier = Math.max(conf1, conf2);
         edges.push({
           fromId: testimony.id,
           toId: other.id,
           type: 'same_event',
-          score: 0.9,
-          source: `shared_event_${sharedEvents[0]}`,
+          score: 0.9 * confidenceMultiplier,
+          source: `shared_event_${eventId}`,
         });
       }
 
@@ -342,17 +608,21 @@ export class TestimonyConnectionService {
         });
       }
 
-      // Same location
-      const sharedLocations = [...testimonyLocationIds].filter((id) =>
-        otherLocationIds.has(id),
+      // Same location — confidence-weighted
+      const sharedLocations = [...testimonyLocationMap.keys()].filter((id) =>
+        otherLocationMap.has(id),
       );
       if (sharedLocations.length > 0) {
+        const locId = sharedLocations[0];
+        const conf1 = testimonyLocationMap.get(locId) ?? 1.0;
+        const conf2 = otherLocationMap.get(locId) ?? 1.0;
+        const confidenceMultiplier = Math.max(conf1, conf2);
         edges.push({
           fromId: testimony.id,
           toId: other.id,
           type: 'same_location',
-          score: 0.8,
-          source: `shared_location_${sharedLocations[0]}`,
+          score: 0.8 * confidenceMultiplier,
+          source: `shared_location_${locId}`,
         });
       }
 
@@ -618,7 +888,7 @@ export class TestimonyConnectionService {
 
   /**
    * Rate a connection quality (1-5 stars)
-   * This helps improve future connection accuracy
+   * This helps improve future connection accuracy via adaptive thresholds
    */
   async rateConnection(edgeId: number, rating: number) {
     if (rating < 1 || rating > 5) {
@@ -683,6 +953,38 @@ export class TestimonyConnectionService {
   }
 
   /**
+   * Identify low-quality connection types based on user ratings.
+   * Returns warnings for types with avg rating < 3.0 and 10+ ratings.
+   */
+  async getLowQualityConnectionWarnings(): Promise<
+    Array<{
+      type: string;
+      avgRating: number;
+      ratedCount: number;
+      recommendation: string;
+    }>
+  > {
+    const stats = await this.getConnectionQualityStats();
+
+    return stats
+      .filter(
+        (s) =>
+          s.avgUserRating !== null &&
+          s.avgUserRating < 3.0 &&
+          s.ratedCount >= 10,
+      )
+      .map((s) => ({
+        type: s.type,
+        avgRating: s.avgUserRating!,
+        ratedCount: s.ratedCount,
+        recommendation:
+          s.avgUserRating! < 2.0
+            ? `CRITICAL: Users rate "${s.type}" connections very poorly (${s.avgUserRating!.toFixed(1)}/5). Consider raising thresholds or disabling this type.`
+            : `WARNING: "${s.type}" connections rated below average (${s.avgUserRating!.toFixed(1)}/5). Consider raising thresholds.`,
+      }));
+  }
+
+  /**
    * Get human-readable reason for connection
    */
   private getConnectionReason(type: string): string {
@@ -714,7 +1016,7 @@ export class TestimonyConnectionService {
 
   /**
    * Apply weighted hybrid scoring - combine semantic and rule-based scores
-   * This gives more accurate overall connection scores
+   * Includes confidence boost when both signals are strong
    */
   private applyHybridScoring(
     allEdges: Array<{
@@ -782,9 +1084,14 @@ export class TestimonyConnectionService {
 
       if (semanticScore && ruleScore) {
         // Both semantic AND rule-based match - calculate hybrid score
-        const hybridScore =
+        let hybridScore =
           semanticScore * this.SEMANTIC_WEIGHT +
           ruleScore * this.RULE_BASED_WEIGHT;
+
+        // Apply confidence boost when both signals are strong
+        if (semanticScore > 0.80 && ruleScore > 0.85) {
+          hybridScore = Math.min(0.98, hybridScore * 1.05);
+        }
 
         hybridEdges.push({
           fromId: edge.fromId,
