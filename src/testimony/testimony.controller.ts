@@ -528,6 +528,124 @@ export class TestimonyController {
     return await this.testimonyService.getDrafts(userId);
   }
 
+  // ========== Semantic Search ==========
+
+  @Get('search/semantic')
+  @ApiOperation({
+    summary: 'AI-powered semantic search across testimonies',
+    description:
+      'Uses embedding vectors to find testimonies semantically similar to the search query. More accurate than keyword search for finding related content.',
+  })
+  @ApiQuery({
+    name: 'q',
+    required: true,
+    type: String,
+    description: 'Search query text',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Max results (default: 10)',
+  })
+  @ApiResponse({ status: 200, description: 'Semantic search results' })
+  async semanticSearch(
+    @Query('q') query: string,
+    @Query('limit') limit?: string,
+  ) {
+    if (!query || query.trim().length === 0) {
+      return { data: [], meta: { query: '', limit: 10, total: 0 } };
+    }
+    const take = limit ? Math.min(50, Math.max(1, parseInt(limit, 10))) : 10;
+    return this.testimonyService.semanticSearch(query, take);
+  }
+
+  // ========== Admin Analytics ==========
+
+  @Get('admin/analytics')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: '[Admin] Dashboard analytics',
+    description:
+      'Returns aggregate statistics: testimony counts by status/type, user count, connection stats, recent activity.',
+  })
+  @ApiResponse({ status: 200, description: 'Analytics data' })
+  async getAnalytics() {
+    return this.testimonyService.getAnalytics();
+  }
+
+  // ========== Admin Reports ==========
+
+  @Get('admin/reports')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: '[Admin] Get all testimony reports' })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: ['pending', 'investigating', 'resolved', 'dismissed'],
+  })
+  @ApiResponse({ status: 200, description: 'List of reports' })
+  async getReports(@Query('status') status?: string) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return await this.testimonyService.getReports(status);
+  }
+
+  // ========== Trending & Most Connected ==========
+
+  @Get('trending')
+  @ApiOperation({
+    summary: 'Get trending testimonies by impressions',
+    description: 'Returns the most viewed approved testimonies.',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Max results (default: 10)',
+  })
+  @ApiResponse({ status: 200, description: 'Trending testimonies' })
+  async getTrending(@Query('limit') limit?: string) {
+    const take = limit ? Math.min(50, Math.max(1, parseInt(limit, 10))) : 10;
+    return this.testimonyService.getTrending(take);
+  }
+
+  @Get('most-connected')
+  @ApiOperation({
+    summary: 'Get testimonies with the most AI connections',
+    description:
+      'Returns testimonies that have the most connections to other testimonies, indicating central or highly relevant stories.',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Max results (default: 10)',
+  })
+  @ApiResponse({ status: 200, description: 'Most connected testimonies' })
+  async getMostConnected(@Query('limit') limit?: string) {
+    const take = limit ? Math.min(50, Math.max(1, parseInt(limit, 10))) : 10;
+    return this.testimonyService.getMostConnected(take);
+  }
+
+  // ========== Bookmarks ==========
+
+  @Get('bookmarks')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Get all bookmarked testimonies for current user' })
+  @ApiResponse({ status: 200, description: 'User bookmarks' })
+  async getBookmarks(
+    @Request() req: { user: User & { role?: string; fullName?: string } },
+  ) {
+    const userId = this.getAuthenticatedUserId(req);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return await this.testimonyService.getBookmarks(userId);
+  }
+
   @Get(':id')
   @ApiOperation({
     summary:
@@ -822,106 +940,6 @@ Each connection includes an accuracy score (0-100) indicating connection strengt
     return this.testimonyService.getAllConnections(take);
   }
 
-  // ========== Semantic Search ==========
-
-  @Get('search/semantic')
-  @ApiOperation({
-    summary: 'AI-powered semantic search across testimonies',
-    description:
-      'Uses embedding vectors to find testimonies semantically similar to the search query. More accurate than keyword search for finding related content.',
-  })
-  @ApiQuery({
-    name: 'q',
-    required: true,
-    type: String,
-    description: 'Search query text',
-  })
-  @ApiQuery({
-    name: 'limit',
-    required: false,
-    type: Number,
-    description: 'Max results (default: 10)',
-  })
-  @ApiResponse({ status: 200, description: 'Semantic search results' })
-  async semanticSearch(
-    @Query('q') query: string,
-    @Query('limit') limit?: string,
-  ) {
-    if (!query || query.trim().length === 0) {
-      return { data: [], meta: { query: '', limit: 10, total: 0 } };
-    }
-    const take = limit ? Math.min(50, Math.max(1, parseInt(limit, 10))) : 10;
-    return this.testimonyService.semanticSearch(query, take);
-  }
-
-  // ========== Admin Analytics ==========
-
-  @Get('admin/analytics')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('admin')
-  @ApiBearerAuth('JWT-auth')
-  @ApiOperation({
-    summary: '[Admin] Dashboard analytics',
-    description:
-      'Returns aggregate statistics: testimony counts by status/type, user count, connection stats, recent activity.',
-  })
-  @ApiResponse({ status: 200, description: 'Analytics data' })
-  async getAnalytics() {
-    return this.testimonyService.getAnalytics();
-  }
-
-  // ========== Trending & Most Connected ==========
-
-  @Get('trending')
-  @ApiOperation({
-    summary: 'Get trending testimonies by impressions',
-    description: 'Returns the most viewed approved testimonies.',
-  })
-  @ApiQuery({
-    name: 'limit',
-    required: false,
-    type: Number,
-    description: 'Max results (default: 10)',
-  })
-  @ApiResponse({ status: 200, description: 'Trending testimonies' })
-  async getTrending(@Query('limit') limit?: string) {
-    const take = limit ? Math.min(50, Math.max(1, parseInt(limit, 10))) : 10;
-    return this.testimonyService.getTrending(take);
-  }
-
-  @Get('most-connected')
-  @ApiOperation({
-    summary: 'Get testimonies with the most AI connections',
-    description:
-      'Returns testimonies that have the most connections to other testimonies, indicating central or highly relevant stories.',
-  })
-  @ApiQuery({
-    name: 'limit',
-    required: false,
-    type: Number,
-    description: 'Max results (default: 10)',
-  })
-  @ApiResponse({ status: 200, description: 'Most connected testimonies' })
-  async getMostConnected(@Query('limit') limit?: string) {
-    const take = limit ? Math.min(50, Math.max(1, parseInt(limit, 10))) : 10;
-    return this.testimonyService.getMostConnected(take);
-  }
-
-  // ========== Bookmarks ==========
-
-  @Get('bookmarks')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Get all bookmarked testimonies for current user' })
-  @ApiResponse({ status: 200, description: 'User bookmarks' })
-  async getBookmarks(
-    @Request() req: { user: User & { role?: string; fullName?: string } },
-  ) {
-    const userId = this.getAuthenticatedUserId(req);
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return await this.testimonyService.getBookmarks(userId);
-  }
-
   @Post(':id/bookmark')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
@@ -1005,22 +1023,6 @@ Each connection includes an accuracy score (0-100) indicating connection strengt
       body.reason,
       body.details,
     );
-  }
-
-  @Get('admin/reports')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('admin')
-  @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: '[Admin] Get all testimony reports' })
-  @ApiQuery({
-    name: 'status',
-    required: false,
-    enum: ['pending', 'investigating', 'resolved', 'dismissed'],
-  })
-  @ApiResponse({ status: 200, description: 'List of reports' })
-  async getReports(@Query('status') status?: string) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return await this.testimonyService.getReports(status);
   }
 
   @Patch('admin/reports/:reportId')
