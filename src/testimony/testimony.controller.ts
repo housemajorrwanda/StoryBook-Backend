@@ -605,7 +605,6 @@ export class TestimonyController {
   })
   @ApiResponse({ status: 200, description: 'Pending transcriptions' })
   async getPendingTranscriptions() {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
     return await this.aiService.getPendingTranscriptions();
   }
 
@@ -618,7 +617,6 @@ export class TestimonyController {
   })
   @ApiResponse({ status: 200, description: 'Pending embeddings' })
   async getPendingEmbeddings() {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
     return await this.aiService.getPendingEmbeddings();
   }
 
@@ -633,7 +631,6 @@ export class TestimonyController {
   })
   @ApiResponse({ status: 200, description: 'AI failure report' })
   async getAiFailures() {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
     return await this.aiService.getAiFailures();
   }
 
@@ -649,7 +646,6 @@ export class TestimonyController {
   })
   @ApiResponse({ status: 200, description: 'Batch processing started' })
   async processBatch() {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
     return await this.aiService.processBatch();
   }
 
@@ -665,12 +661,10 @@ export class TestimonyController {
   })
   @ApiResponse({ status: 200, description: 'Retry started' })
   async retryFailedTranscriptions() {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
     return await this.aiService.retryFailedTranscriptions();
   }
 
   // ========== Trending & Most Connected ==========
-
   @Get('trending')
   @ApiOperation({
     summary: 'Get trending testimonies by impressions',
