@@ -125,6 +125,16 @@ model Testimony {
   summary    String?  @db.Text
   keyPhrases String[]
 
+  // AI processing status tracking
+  transcriptionStatus String?   // pending, processing, completed, failed, timeout
+  transcriptionError  String?   @db.Text
+  transcriptionAttempts Int     @default(0)
+  transcriptionStartedAt  DateTime?
+  transcriptionCompletedAt DateTime?
+  embeddingStatus     String?   // pending, completed, failed
+  embeddingError      String?   @db.Text
+  mediaContentHash    String?   // SHA256 hash of audio/video URL for caching
+
   // Admin actions
   adminFeedback String?   @db.Text // Feedback from admin
   reportReason  String?   @db.Text // Reason for reporting
