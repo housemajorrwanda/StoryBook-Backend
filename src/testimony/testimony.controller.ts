@@ -29,6 +29,7 @@ import {
 import { TestimonyService } from './testimony.service';
 import { UploadService } from '../upload/upload.service';
 import { TestimonyConnectionService } from '../ai-processing/testimony-connection.service';
+import { TestimonyAiService } from '../ai-processing/testimony-ai.service';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { UseInterceptors, UploadedFiles } from '@nestjs/common';
 import { ApiBody, ApiConsumes } from '@nestjs/swagger';
@@ -55,6 +56,7 @@ export class TestimonyController {
     private readonly testimonyService: TestimonyService,
     private readonly uploadService: UploadService,
     private readonly connectionService: TestimonyConnectionService,
+    private readonly aiService: TestimonyAiService,
   ) {}
 
   private getAuthenticatedUserId(req: {
@@ -172,7 +174,6 @@ export class TestimonyController {
       ? (identityPreferenceCandidate as IdentityPreference)
       : undefined;
 
-    // Build DTO base from body with safe casts
     const relationMap = {
       survivor: RelationToEvent.SURVIVOR,
       witness: RelationToEvent.WITNESS,
@@ -294,7 +295,6 @@ export class TestimonyController {
 
           let descriptions: string[] = [];
           if (Array.isArray(rawDescriptions)) {
-            // Already an array
             descriptions = rawDescriptions
               .map((d) => (typeof d === 'string' ? d : ''))
               .map((d) => d.trim())
@@ -351,7 +351,7 @@ export class TestimonyController {
           `[Testimony] Images field is not an array: ${typeof files.images}`,
         );
       } else if (files.images.length === 0) {
-        // Images array is empty
+        console.warn(`[Testimony] Images array is empty`);
       }
     }
 
@@ -529,7 +529,6 @@ export class TestimonyController {
   }
 
   // ========== Semantic Search ==========
-
   @Get('search/semantic')
   @ApiOperation({
     summary: 'AI-powered semantic search across testimonies',
@@ -561,7 +560,6 @@ export class TestimonyController {
   }
 
   // ========== Admin Analytics ==========
-
   @Get('admin/analytics')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
@@ -592,6 +590,83 @@ export class TestimonyController {
   async getReports(@Query('status') status?: string) {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return await this.testimonyService.getReports(status);
+  }
+
+  // ========== Admin AI Pipeline Tools ==========
+
+  @Get('admin/ai/pending-transcriptions')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: '[Admin] List testimonies awaiting transcription',
+    description:
+      'Returns approved audio/video testimonies that have no transcript yet, with status and error details.',
+  })
+  @ApiResponse({ status: 200, description: 'Pending transcriptions' })
+  async getPendingTranscriptions() {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
+    return await this.aiService.getPendingTranscriptions();
+  }
+
+  @Get('admin/ai/pending-embeddings')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: '[Admin] List testimonies with missing/failed embeddings',
+  })
+  @ApiResponse({ status: 200, description: 'Pending embeddings' })
+  async getPendingEmbeddings() {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
+    return await this.aiService.getPendingEmbeddings();
+  }
+
+  @Get('admin/ai/failures')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: '[Admin] List all AI processing failures',
+    description:
+      'Shows all failed transcriptions and embeddings with error codes and attempt counts.',
+  })
+  @ApiResponse({ status: 200, description: 'AI failure report' })
+  async getAiFailures() {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
+    return await this.aiService.getAiFailures();
+  }
+
+  @Post('admin/ai/process-batch')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  @ApiBearerAuth('JWT-auth')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: '[Admin] Batch process all pending transcriptions and embeddings',
+    description:
+      'Queues up to 50 testimonies for AI processing with concurrency control (max 5 concurrent).',
+  })
+  @ApiResponse({ status: 200, description: 'Batch processing started' })
+  async processBatch() {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
+    return await this.aiService.processBatch();
+  }
+
+  @Post('admin/ai/retry-failed')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  @ApiBearerAuth('JWT-auth')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: '[Admin] Retry all failed transcriptions',
+    description:
+      'Resets failed transcription status and re-queues them. Only retries testimonies with fewer than 5 total attempts.',
+  })
+  @ApiResponse({ status: 200, description: 'Retry started' })
+  async retryFailedTranscriptions() {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
+    return await this.aiService.retryFailedTranscriptions();
   }
 
   // ========== Trending & Most Connected ==========
@@ -744,13 +819,11 @@ export class TestimonyController {
       '/transcribe/stream',
     );
 
-    // Set SSE headers
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Accel-Buffering', 'no');
 
-    // Proxy the SSE stream from transcription service
     try {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const { data: stream } = await axios.post(
@@ -878,7 +951,6 @@ export class TestimonyController {
     description: 'Low-quality connection warnings',
   })
   async getConnectionWarnings() {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
     return await this.connectionService.getLowQualityConnectionWarnings();
   }
 
