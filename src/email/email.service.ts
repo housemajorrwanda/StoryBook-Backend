@@ -16,12 +16,7 @@ export class EmailService {
     const smtpUser = this.configService.get<string>('SMTP_USER');
     const smtpPass = this.configService.get<string>('SMTP_PASS');
 
-    if (
-      process.env.NODE_ENV === 'production' &&
-      smtpHost &&
-      smtpUser &&
-      smtpPass
-    ) {
+    if (smtpHost && smtpUser && smtpPass) {
       // Production SMTP configuration (only if credentials are provided)
       try {
         this.transporter = nodemailer.createTransport({
@@ -33,12 +28,9 @@ export class EmailService {
             pass: smtpPass,
           },
         });
-        this.logger.log('Production SMTP transporter configured');
+        this.logger.log('SMTP transporter configured');
       } catch (error) {
-        this.logger.error(
-          'Failed to create production SMTP transporter:',
-          error,
-        );
+        this.logger.error('Failed to create SMTP transporter:', error);
         this.createFallbackTransporter();
       }
     } else {
