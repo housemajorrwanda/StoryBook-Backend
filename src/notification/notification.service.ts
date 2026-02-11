@@ -116,15 +116,15 @@ export class NotificationService {
     relatedTestimonyId: number;
     similarityScore?: number;
   }): Promise<void> {
-    // Fetch testimonies to get titles for URL generation
+    // Fetch testimonies with their owners for URL generation + user notifications
     const [testimony, relatedTestimony] = await Promise.all([
       this.prisma.testimony.findUnique({
         where: { id: params.testimonyId },
-        select: { id: true, eventTitle: true },
+        select: { id: true, eventTitle: true, userId: true },
       }),
       this.prisma.testimony.findUnique({
         where: { id: params.relatedTestimonyId },
-        select: { id: true, eventTitle: true },
+        select: { id: true, eventTitle: true, userId: true },
       }),
     ]);
 
@@ -135,6 +135,11 @@ export class NotificationService {
       ? generateTestimonyUrl(relatedTestimony.id, relatedTestimony.eventTitle)
       : null;
 
+    const score = params.similarityScore
+      ? `${Math.round(params.similarityScore * 100)}%`
+      : undefined;
+
+    // 1. Admin notification
     await this.createAdminNotification({
       type: 'ai_connection',
       title: 'AI found a potential connection',
@@ -144,10 +149,49 @@ export class NotificationService {
         testimonyId: params.testimonyId,
         relatedTestimonyId: params.relatedTestimonyId,
         similarityScore: params.similarityScore,
-        url, // URL to the main testimony
-        relatedUrl, // URL to the related testimony
+        url,
+        relatedUrl,
       },
     });
+
+    // 2. Notify testimony owner (fromId)
+    if (testimony?.userId) {
+      await this.createNotification({
+        type: 'ai_connection',
+        audience: 'user',
+        userId: testimony.userId,
+        title: 'New connection found for your testimony',
+        message: `AI found a ${score ? `${score} match` : 'connection'} between your testimony "${testimony.eventTitle}" and "${relatedTestimony?.eventTitle ?? `#${params.relatedTestimonyId}`}".`,
+        metadata: {
+          testimonyId: params.testimonyId,
+          relatedTestimonyId: params.relatedTestimonyId,
+          similarityScore: params.similarityScore,
+          url,
+          relatedUrl,
+        },
+      });
+    }
+
+    // 3. Notify related testimony owner (toId) — skip if same user
+    if (
+      relatedTestimony?.userId &&
+      relatedTestimony.userId !== testimony?.userId
+    ) {
+      await this.createNotification({
+        type: 'ai_connection',
+        audience: 'user',
+        userId: relatedTestimony.userId,
+        title: 'New connection found for your testimony',
+        message: `AI found a ${score ? `${score} match` : 'connection'} between your testimony "${relatedTestimony.eventTitle}" and "${testimony?.eventTitle ?? `#${params.testimonyId}`}".`,
+        metadata: {
+          testimonyId: params.relatedTestimonyId,
+          relatedTestimonyId: params.testimonyId,
+          similarityScore: params.similarityScore,
+          url: relatedUrl,
+          relatedUrl: url,
+        },
+      });
+    }
   }
 
   async listNotifications(query: NotificationQueryDto) {

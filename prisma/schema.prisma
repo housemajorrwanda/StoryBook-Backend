@@ -31,12 +31,15 @@ model User {
   updatedAt        DateTime  @updatedAt
 
   // Relations
-  testimonies        Testimony[]
-  mediaProgress      TestimonyMediaProgress[]
-  virtualTours       VirtualTour[]
-  notifications      Notification[]
-  educationalContent EducationalContent[]
-  userProgress       UserProgress[]
+  testimonies          Testimony[]           @relation("user_testimonies")
+  reviewedTestimonies  Testimony[]           @relation("reviewer")
+  mediaProgress        TestimonyMediaProgress[]
+  virtualTours         VirtualTour[]
+  notifications        Notification[]
+  educationalContent   EducationalContent[]
+  userProgress         UserProgress[]
+  bookmarks            UserBookmark[]
+  testimonyReports     TestimonyReport[]
 
   @@map("users")
 }
@@ -127,10 +130,11 @@ model Testimony {
   reportReason  String?   @db.Text // Reason for reporting
   reviewedBy    Int? // Admin who reviewed
   reviewedAt    DateTime? // When it was reviewed
+  reviewer      User?                    @relation("reviewer", fields: [reviewedBy], references: [id], onDelete: SetNull)
 
   // Relations
   userId        Int?
-  user          User?                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user          User?                    @relation("user_testimonies", fields: [userId], references: [id], onDelete: Cascade)
   mediaProgress TestimonyMediaProgress[]
   // Normalized relations
   events        TestimonyEvent[]
@@ -142,9 +146,16 @@ model Testimony {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Bookmarks and reports
+  bookmarks   UserBookmark[]
+  reports     TestimonyReport[]
+
   @@index([userId])
   @@index([submissionType])
   @@index([status])
+  @@index([status, isPublished])
+  @@index([userId, status])
+  @@index([createdAt(sort: Desc), status])
   @@map("testimonies")
 }
 
@@ -280,10 +291,13 @@ model TestimonyEdge {
   from Testimony @relation("edges_from", fields: [fromId], references: [id], onDelete: Cascade)
   to   Testimony @relation("edges_to", fields: [toId], references: [id], onDelete: Cascade)
 
+  @@unique([fromId, toId])
   @@index([fromId])
   @@index([toId])
   @@index([type])
   @@index([userRating])
+  @@index([fromId, score(sort: Desc)])
+  @@index([toId, score(sort: Desc)])
   @@map("testimony_edges")
 }
 
@@ -317,6 +331,45 @@ model TestimonyRelative {
   @@index([testimonyId])
   @@index([relativeTypeId])
   @@map("testimony_relatives")
+}
+
+// ========== User Bookmarks ==========
+model UserBookmark {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  testimonyId Int
+  notes       String?  @db.Text
+  createdAt   DateTime @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  testimony Testimony @relation(fields: [testimonyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, testimonyId])
+  @@index([userId])
+  @@index([testimonyId])
+  @@map("user_bookmarks")
+}
+
+// ========== Testimony Reports ==========
+model TestimonyReport {
+  id          Int      @id @default(autoincrement())
+  testimonyId Int
+  reportedBy  Int
+  reason      String   // inappropriate, false_info, harmful, duplicate, other
+  details     String?  @db.Text
+  status      String   @default("pending") // pending, investigating, resolved, dismissed
+  adminNotes  String?  @db.Text
+  resolvedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  testimony Testimony @relation(fields: [testimonyId], references: [id], onDelete: Cascade)
+  reporter  User      @relation(fields: [reportedBy], references: [id], onDelete: Cascade)
+
+  @@index([testimonyId])
+  @@index([reportedBy])
+  @@index([status])
+  @@map("testimony_reports")
 }
 
 // ========== Virtual Tour / 3D Visit (Standalone) ==========
