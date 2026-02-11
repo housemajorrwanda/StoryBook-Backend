@@ -966,4 +966,75 @@ Each connection includes an accuracy score (0-100) indicating connection strengt
     const userId = this.getAuthenticatedUserId(req);
     return this.testimonyService.triggerAiProcessing(id, userId);
   }
+
+  // ========== Relative Types Admin CRUD ==========
+
+  @Get('relative-types')
+  @ApiOperation({ summary: 'Get all available relative/relationship types' })
+  @ApiResponse({ status: 200, description: 'List of all relative types' })
+  async getRelativeTypes() {
+    return this.testimonyService.getRelativeTypes();
+  }
+
+  @Post('relative-types')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: '[Admin] Create a new relative type' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        slug: { type: 'string', example: 'step-mother' },
+        displayName: { type: 'string', example: 'Step Mother' },
+        synonyms: {
+          type: 'string',
+          example: 'stepmom,step mom',
+          nullable: true,
+        },
+      },
+      required: ['slug', 'displayName'],
+    },
+  })
+  @ApiResponse({ status: 201, description: 'Relative type created' })
+  async createRelativeType(
+    @Body() body: { slug: string; displayName: string; synonyms?: string },
+  ) {
+    return this.testimonyService.createRelativeType(body);
+  }
+
+  @Patch('relative-types/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: '[Admin] Update a relative type' })
+  @ApiParam({ name: 'id', type: Number })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        slug: { type: 'string' },
+        displayName: { type: 'string' },
+        synonyms: { type: 'string', nullable: true },
+      },
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Relative type updated' })
+  async updateRelativeType(
+    @Param('id') id: string,
+    @Body() body: { slug?: string; displayName?: string; synonyms?: string },
+  ) {
+    return this.testimonyService.updateRelativeType(parseInt(id, 10), body);
+  }
+
+  @Delete('relative-types/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: '[Admin] Delete a relative type' })
+  @ApiParam({ name: 'id', type: Number })
+  @ApiResponse({ status: 200, description: 'Relative type deleted' })
+  async deleteRelativeType(@Param('id') id: string) {
+    return this.testimonyService.deleteRelativeType(parseInt(id, 10));
+  }
 }

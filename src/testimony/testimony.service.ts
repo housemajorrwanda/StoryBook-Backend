@@ -23,6 +23,61 @@ export class TestimonyService {
     private connectionService: TestimonyConnectionService,
   ) {}
 
+  // ========== Relative Types CRUD ==========
+
+  async getRelativeTypes() {
+    return this.prisma.relativeType.findMany({
+      select: { id: true, slug: true, displayName: true, synonyms: true },
+      orderBy: { id: 'asc' },
+    });
+  }
+
+  async createRelativeType(data: {
+    slug: string;
+    displayName: string;
+    synonyms?: string;
+  }) {
+    return this.prisma.relativeType.create({
+      data: {
+        slug: data.slug,
+        displayName: data.displayName,
+        synonyms: data.synonyms ?? null,
+      },
+    });
+  }
+
+  async updateRelativeType(
+    id: number,
+    data: { slug?: string; displayName?: string; synonyms?: string },
+  ) {
+    const existing = await this.prisma.relativeType.findUnique({
+      where: { id },
+    });
+    if (!existing) {
+      throw new NotFoundException(`Relative type with ID ${id} not found`);
+    }
+    return this.prisma.relativeType.update({ where: { id }, data });
+  }
+
+  async deleteRelativeType(id: number) {
+    const existing = await this.prisma.relativeType.findUnique({
+      where: { id },
+    });
+    if (!existing) {
+      throw new NotFoundException(`Relative type with ID ${id} not found`);
+    }
+    const usageCount = await this.prisma.testimonyRelative.count({
+      where: { relativeTypeId: id },
+    });
+    if (usageCount > 0) {
+      throw new BadRequestException(
+        `Cannot delete: ${usageCount} testimonies are using this relative type. Reassign them first.`,
+      );
+    }
+    await this.prisma.relativeType.delete({ where: { id } });
+    return { message: `Relative type "${existing.displayName}" deleted` };
+  }
+
   async create(userId: number, createTestimonyDto: CreateTestimonyDto) {
     // Only require agreedToTerms when NOT saving as draft
     if (!createTestimonyDto.isDraft && !createTestimonyDto.agreedToTerms) {
