@@ -26,6 +26,7 @@ import {
   ApiQuery,
   ApiParam,
 } from '@nestjs/swagger';
+import { SkipThrottle } from '@nestjs/throttler';
 import { TestimonyService } from './testimony.service';
 import { UploadService } from '../upload/upload.service';
 import { TestimonyConnectionService } from '../ai-processing/testimony-connection.service';
@@ -375,6 +376,7 @@ export class TestimonyController {
   }
 
   @Get()
+  @SkipThrottle()
   @ApiOperation({
     summary: 'Get all testimonies with pagination and optional filters',
   })
@@ -530,6 +532,7 @@ export class TestimonyController {
 
   // ========== Semantic Search ==========
   @Get('search/semantic')
+  @SkipThrottle()
   @ApiOperation({
     summary: 'AI-powered semantic search across testimonies',
     description:
@@ -666,6 +669,7 @@ export class TestimonyController {
 
   // ========== Trending & Most Connected ==========
   @Get('trending')
+  @SkipThrottle()
   @ApiOperation({
     summary: 'Get trending testimonies by impressions',
     description: 'Returns the most viewed approved testimonies.',
@@ -683,6 +687,7 @@ export class TestimonyController {
   }
 
   @Get('most-connected')
+  @SkipThrottle()
   @ApiOperation({
     summary: 'Get testimonies with the most AI connections',
     description:
@@ -716,6 +721,7 @@ export class TestimonyController {
   }
 
   @Get(':id')
+  @SkipThrottle()
   @ApiOperation({
     summary:
       'Get a single testimony by ID or slug. Supports formats: "1" or "1-testimony-title". Includes resume progress if logged in and AI connections if available.',
@@ -771,6 +777,7 @@ export class TestimonyController {
   }
 
   @Get(':id/transcript/stream')
+  @SkipThrottle()
   @ApiOperation({
     summary: 'Stream live transcription for a testimony (Server-Sent Events)',
     description:
@@ -837,6 +844,7 @@ export class TestimonyController {
   }
 
   @Get(':id/transcript')
+  @SkipThrottle()
   @ApiOperation({
     summary: 'Get transcript for a testimony',
     description:
@@ -968,6 +976,7 @@ export class TestimonyController {
   }
 
   @Get('connections/all')
+  @SkipThrottle()
   @ApiOperation({
     summary: 'Get all AI connections in the system',
     description: `Returns all connections between testimonies discovered by AI. The AI analyzes testimonies using two methods:
@@ -1402,6 +1411,7 @@ Each connection includes an accuracy score (0-100) indicating connection strengt
   // ========== Relative Types Admin CRUD ==========
 
   @Get('relative-types')
+  @SkipThrottle()
   @ApiOperation({ summary: 'Get all available relative/relationship types' })
   @ApiResponse({ status: 200, description: 'List of all relative types' })
   async getRelativeTypes() {

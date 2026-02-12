@@ -25,7 +25,7 @@ import { SimulationModule } from './simulation/simulation.module';
     ThrottlerModule.forRoot([
       {
         ttl: 60000,
-        limit: 10,
+        limit: 60,
       },
     ]),
     PrismaModule,
