@@ -13,6 +13,7 @@ import {
   HttpStatus,
   UnauthorizedException,
   NotFoundException,
+  BadRequestException,
   Res,
   InternalServerErrorException,
 } from '@nestjs/common';
@@ -420,6 +421,19 @@ export class TestimonyController {
     type: String,
     description: 'Filter to date (ISO format)',
   })
+  @ApiQuery({
+    name: 'sort',
+    required: false,
+    enum: ['createdAt', 'updatedAt', 'impressions', 'eventTitle'],
+    description:
+      'Sort field (default: createdAt). Use "impressions" for trending, "createdAt" for recently added.',
+  })
+  @ApiQuery({
+    name: 'order',
+    required: false,
+    enum: ['asc', 'desc'],
+    description: 'Sort order (default: desc)',
+  })
   @ApiResponse({
     status: 200,
     description: 'Paginated list of testimonies',
@@ -452,6 +466,8 @@ export class TestimonyController {
     @Query('isPublished') isPublished?: string,
     @Query('dateFrom') dateFrom?: string,
     @Query('dateTo') dateTo?: string,
+    @Query('sort') sort?: string,
+    @Query('order') order?: string,
   ) {
     const filters: {
       skip?: number;
@@ -463,19 +479,119 @@ export class TestimonyController {
       isPublished?: boolean;
       dateFrom?: string;
       dateTo?: string;
+      sort?: string;
+      order?: 'asc' | 'desc';
     } = {};
 
-    if (skip) filters.skip = parseInt(skip, 10);
-    if (limit) filters.limit = parseInt(limit, 10);
+    if (skip) {
+      const parsed = parseInt(skip, 10);
+      if (isNaN(parsed) || parsed < 0) {
+        throw new BadRequestException('skip must be a non-negative integer');
+      }
+      filters.skip = parsed;
+    }
+    if (limit) {
+      const parsed = parseInt(limit, 10);
+      if (isNaN(parsed) || parsed < 1 || parsed > 100) {
+        throw new BadRequestException(
+          'limit must be an integer between 1 and 100',
+        );
+      }
+      filters.limit = parsed;
+    }
     if (search) filters.search = search;
-    if (submissionType) filters.submissionType = submissionType;
-    if (status) filters.status = status;
-    if (userId) filters.userId = parseInt(userId, 10);
+    if (submissionType) {
+      const allowed = ['written', 'audio', 'video'];
+      if (!allowed.includes(submissionType)) {
+        throw new BadRequestException(
+          `submissionType must be one of: ${allowed.join(', ')}`,
+        );
+      }
+      filters.submissionType = submissionType;
+    }
+    if (status) {
+      const allowed = ['pending', 'approved', 'rejected'];
+      if (!allowed.includes(status)) {
+        throw new BadRequestException(
+          `status must be one of: ${allowed.join(', ')}`,
+        );
+      }
+      filters.status = status;
+    }
+    if (userId) {
+      const parsed = parseInt(userId, 10);
+      if (isNaN(parsed) || parsed <= 0) {
+        throw new BadRequestException('userId must be a positive integer');
+      }
+      filters.userId = parsed;
+    }
     if (isPublished !== undefined) filters.isPublished = isPublished === 'true';
-    if (dateFrom) filters.dateFrom = dateFrom;
-    if (dateTo) filters.dateTo = dateTo;
+    if (dateFrom) {
+      if (isNaN(Date.parse(dateFrom))) {
+        throw new BadRequestException(
+          'dateFrom must be a valid ISO date string',
+        );
+      }
+      filters.dateFrom = dateFrom;
+    }
+    if (dateTo) {
+      if (isNaN(Date.parse(dateTo))) {
+        throw new BadRequestException('dateTo must be a valid ISO date string');
+      }
+      filters.dateTo = dateTo;
+    }
+    if (sort) {
+      const allowed = ['createdAt', 'updatedAt', 'impressions', 'eventTitle'];
+      if (!allowed.includes(sort)) {
+        throw new BadRequestException(
+          `sort must be one of: ${allowed.join(', ')}`,
+        );
+      }
+      filters.sort = sort;
+    }
+    if (order) {
+      if (order !== 'asc' && order !== 'desc') {
+        throw new BadRequestException('order must be "asc" or "desc"');
+      }
+      filters.order = order;
+    }
 
     return this.testimonyService.findAll(filters);
+  }
+
+  @Get('locations')
+  @ApiOperation({
+    summary: 'Get unique testimony locations with counts',
+    description:
+      'Returns all unique locations from approved/published testimonies, grouped with story counts. Sorted by count descending.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'List of locations with testimony counts',
+    schema: {
+      type: 'object',
+      properties: {
+        data: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              location: { type: 'string' },
+              count: { type: 'number' },
+            },
+          },
+        },
+        meta: {
+          type: 'object',
+          properties: {
+            total: { type: 'number' },
+          },
+        },
+      },
+    },
+  })
+  async getLocations() {
+    return this.testimonyService.getLocationGroups();
   }
 
   @Get('my-testimonies')
