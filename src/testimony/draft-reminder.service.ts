@@ -12,7 +12,6 @@ export class DraftReminderService {
     private emailService: EmailService,
   ) {}
 
-  // Run every Monday at 9 AM
   @Cron('0 9 * * 1', {
     name: 'draft-reminder',
     timeZone: 'UTC',
