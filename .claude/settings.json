@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx prisma db execute:*)",
+      "Bash(npx ts-node:*)",
+      "WebFetch(domain:developers.cloudflare.com)"
+    ],
+    "additionalDirectories": [
+      "/tmp"
+    ]
+  }
+}

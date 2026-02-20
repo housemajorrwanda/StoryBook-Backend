@@ -17,7 +17,6 @@ export class EmailService {
     const smtpPass = this.configService.get<string>('SMTP_PASS');
 
     if (smtpHost && smtpUser && smtpPass) {
-      // Production SMTP configuration (only if credentials are provided)
       try {
         this.transporter = nodemailer.createTransport({
           host: smtpHost,
@@ -34,7 +33,6 @@ export class EmailService {
         this.createFallbackTransporter();
       }
     } else {
-      // Development or missing SMTP config: Use console logging as fallback
       this.logger.warn(
         'SMTP credentials not configured. Emails will be logged to console.',
       );
