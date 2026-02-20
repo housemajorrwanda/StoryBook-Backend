@@ -594,7 +594,7 @@ export class TestimonyController {
       },
     },
   })
-  async getLocations() {
+  getLocations() {
     return this.testimonyService.getLocationGroups();
   }
 
