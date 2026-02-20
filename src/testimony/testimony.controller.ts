@@ -1362,24 +1362,35 @@ Each connection includes an accuracy score (0-100) indicating connection strengt
   async rebuildAllConnections() {
     const testimonies = await this.testimonyService.getApprovedTestimonyIds();
 
-    // Clear all existing edges
+    // Clear all existing unrated edges
     await this.testimonyService.clearAllConnections();
 
-    // Trigger discovery for each (non-blocking)
-    let count = 0;
-    for (const t of testimonies) {
-      void this.connectionService.discoverConnections(t.id).catch((err) => {
-        console.error(
-          `Rebuild: connection discovery failed for testimony ${t.id}:`,
-          err,
-        );
-      });
-      count++;
+    const total = testimonies.length;
+    let succeeded = 0;
+    let failed = 0;
+
+    // Process in batches of 5 to avoid overwhelming the API
+    const batchSize = 5;
+    for (let i = 0; i < testimonies.length; i += batchSize) {
+      const batch = testimonies.slice(i, i + batchSize);
+      const results = await Promise.allSettled(
+        batch.map((t) => this.connectionService.discoverConnections(t.id)),
+      );
+      for (const result of results) {
+        if (result.status === 'fulfilled') {
+          succeeded++;
+        } else {
+          failed++;
+          console.error('Rebuild: connection discovery failed:', result.reason);
+        }
+      }
     }
 
     return {
-      message: `Connection rebuild started for ${count} testimonies. User-rated connections will be preserved. This may take a few minutes.`,
-      totalTestimonies: count,
+      message: `Connection rebuild completed for ${total} testimonies. ${succeeded} succeeded, ${failed} failed.`,
+      totalTestimonies: total,
+      succeeded,
+      failed,
     };
   }
 

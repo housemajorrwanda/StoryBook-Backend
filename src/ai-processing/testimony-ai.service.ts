@@ -389,15 +389,18 @@ export class TestimonyAiService {
 
       this.logger.log(`Finished AI processing for testimony ${testimonyId}`);
 
-      // Auto re-discover connections (important when transcript was just added)
-      void this.connectionService
-        .discoverConnections(testimonyId)
-        .catch((err) =>
-          this.logger.warn(
-            `Failed to discover connections for testimony ${testimonyId}:`,
-            err,
-          ),
+      // Discover connections (rule-based always works, semantic needs embeddings)
+      try {
+        await this.connectionService.discoverConnections(testimonyId);
+        this.logger.log(
+          `Connection discovery completed for testimony ${testimonyId}`,
         );
+      } catch (err) {
+        this.logger.error(
+          `Failed to discover connections for testimony ${testimonyId}:`,
+          err,
+        );
+      }
     } catch (error) {
       this.logger.error(
         `Failed to process testimony ${testimonyId}`,

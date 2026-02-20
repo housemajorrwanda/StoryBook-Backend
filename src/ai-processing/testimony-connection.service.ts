@@ -62,11 +62,18 @@ export class TestimonyConnectionService {
         },
       });
 
-      if (!testimony || testimony.embeddings.length === 0) {
+      if (!testimony) {
         this.logger.warn(
-          `No embeddings found for testimony ${testimonyId}, skipping connection discovery`,
+          `Testimony ${testimonyId} not found, skipping connection discovery`,
         );
         return;
+      }
+
+      const hasEmbeddings = testimony.embeddings.length > 0;
+      if (!hasEmbeddings) {
+        this.logger.warn(
+          `No embeddings for testimony ${testimonyId}, will use rule-based connections only`,
+        );
       }
 
       // Preserve edges that have user ratings instead of deleting everything
@@ -98,13 +105,12 @@ export class TestimonyConnectionService {
         ratedEdgeKeys.add(`${re.fromId}-${re.toId}`);
       }
 
-      // Get all other approved testimonies with embeddings
+      // Get all other approved testimonies (with or without embeddings for rule-based matching)
       const otherTestimonies = await this.prisma.testimony.findMany({
         where: {
           id: { not: testimonyId },
           status: 'approved',
           isPublished: true,
-          embeddings: { some: {} },
         },
         include: {
           embeddings: true,
@@ -120,7 +126,7 @@ export class TestimonyConnectionService {
 
       if (otherTestimonies.length === 0) {
         this.logger.log(
-          `No other testimonies with embeddings found for comparison`,
+          `No other approved testimonies found for comparison`,
         );
         return;
       }
@@ -136,13 +142,16 @@ export class TestimonyConnectionService {
         source: string;
       }> = [];
 
-      // 1. Semantic similarity based on embeddings (with keyPhrases pre-filter)
-      const semanticEdges = this.findSemanticConnections(
-        testimony,
-        otherTestimonies,
-        thresholds,
-      );
-      edges.push(...semanticEdges);
+      // 1. Semantic similarity based on embeddings (only if this testimony has embeddings)
+      let semanticEdges: typeof edges = [];
+      if (hasEmbeddings) {
+        semanticEdges = this.findSemanticConnections(
+          testimony,
+          otherTestimonies,
+          thresholds,
+        );
+        edges.push(...semanticEdges);
+      }
 
       // 2. Rule-based connections (same events, locations, dates, people)
       const ruleBasedEdges = this.findRuleBasedConnections(
