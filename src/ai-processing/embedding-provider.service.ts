@@ -208,6 +208,7 @@ export class EmbeddingProviderService {
 
         const response = await this.httpClient.post(this.ollamaUrl, payload);
 
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         const raw = Array.isArray(response.data)
           ? response.data
           : (response.data?.data ?? null);
