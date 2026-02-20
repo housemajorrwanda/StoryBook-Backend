@@ -227,10 +227,25 @@ export class TestimonyService {
     isPublished?: boolean;
     dateFrom?: string;
     dateTo?: string;
+    sort?: string;
+    order?: 'asc' | 'desc';
   }) {
     try {
       const skip = filters?.skip ?? 0;
       const limit = filters?.limit ?? 10;
+
+      // Validate sort field
+      const allowedSortFields = [
+        'createdAt',
+        'updatedAt',
+        'impressions',
+        'eventTitle',
+      ];
+      const sortField =
+        filters?.sort && allowedSortFields.includes(filters.sort)
+          ? filters.sort
+          : 'createdAt';
+      const sortOrder = filters?.order === 'asc' ? 'asc' : 'desc';
 
       const where: {
         submissionType?: string;
@@ -313,7 +328,7 @@ export class TestimonyService {
               },
             },
           },
-          orderBy: { createdAt: 'desc' },
+          orderBy: { [sortField]: sortOrder },
           skip,
           take: limit,
         }),
@@ -326,6 +341,8 @@ export class TestimonyService {
           skip,
           limit,
           total,
+          sort: sortField,
+          order: sortOrder,
         },
       };
     } catch (error: unknown) {
@@ -340,6 +357,46 @@ export class TestimonyService {
         console.error('Unexpected error fetching testimonies:', error.message);
       }
       throw new InternalServerErrorException('Failed to fetch testimonies');
+    }
+  }
+
+  // ========== Stories by Location ==========
+
+  async getLocationGroups() {
+    try {
+      const locations = await this.prisma.testimony.groupBy({
+        by: ['location'],
+        where: {
+          status: 'approved',
+          isPublished: true,
+          location: { not: null },
+        },
+        _count: { id: true },
+        orderBy: { _count: { id: 'desc' } },
+      });
+
+      const data = locations
+        .filter(
+          (loc): loc is typeof loc & { location: string } =>
+            loc.location !== null && loc.location.trim().length > 0,
+        )
+        .map((loc) => ({
+          location: loc.location,
+          count: loc._count.id,
+        }));
+
+      return {
+        data,
+        meta: { total: data.length },
+      };
+    } catch (error: unknown) {
+      console.error('Error fetching location groups:', error);
+
+      if (error && typeof error === 'object' && 'status' in error) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException('Failed to fetch location groups');
     }
   }
 
