@@ -58,8 +58,6 @@ export class NotificationService {
     if (params.isDraft) {
       return;
     }
-
-    // Fetch testimony to get title for URL generation
     const testimony = await this.prisma.testimony.findUnique({
       where: { id: params.testimonyId },
       select: { id: true, eventTitle: true },
@@ -88,7 +86,6 @@ export class NotificationService {
     adminId: number;
     feedback?: string;
   }): Promise<void> {
-    // Fetch testimony to get title for URL generation
     const testimony = await this.prisma.testimony.findUnique({
       where: { id: params.testimonyId },
       select: { id: true, eventTitle: true },
@@ -116,7 +113,6 @@ export class NotificationService {
     relatedTestimonyId: number;
     similarityScore?: number;
   }): Promise<void> {
-    // Fetch testimonies with their owners for URL generation + user notifications
     const [testimony, relatedTestimony] = await Promise.all([
       this.prisma.testimony.findUnique({
         where: { id: params.testimonyId },
