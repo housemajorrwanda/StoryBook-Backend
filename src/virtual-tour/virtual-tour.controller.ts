@@ -58,20 +58,86 @@ export class VirtualTourController {
     private readonly uploadService: UploadService,
   ) {}
 
+  @Post('upload-file')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  @ApiBearerAuth('JWT-auth')
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      [{ name: 'tourFile', maxCount: 1 }],
+      { limits: { fileSize: 500 * 1024 * 1024 } }, // 500MB absolute cap
+    ),
+  )
+  @ApiOperation({
+    summary: 'Upload a tour file and get back its URL (Admin only)',
+    description:
+      'Upload just the binary tour file first. Returns a URL to use when creating the tour. This avoids request timeouts on large files.',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['tourFile', 'tourType'],
+      properties: {
+        tourType: {
+          type: 'string',
+          enum: ['360_image', '360_video', '3d_model'],
+        },
+        tourFile: { type: 'string', format: 'binary' },
+      },
+    },
+  })
+  @ApiResponse({ status: 201, description: 'File uploaded, URL returned' })
+  @ApiResponse({ status: 400, description: 'Bad request' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async uploadTourFile(
+    @UploadedFiles() files: UploadedTourFiles,
+    @Body() body: Record<string, unknown>,
+  ) {
+    const tourType = this.getStringField(body.tourType, 'tourType', true)!;
+
+    if (!files?.tourFile?.[0]) {
+      throw new BadRequestException('tourFile is required');
+    }
+
+    const tourFile = files.tourFile[0];
+    const result = await this.uploadService.uploadVirtualTour(
+      tourFile,
+      tourType as '360_image' | '3d_model' | '360_video',
+    );
+
+    const urlField =
+      tourType === '360_image'
+        ? 'image360Url'
+        : tourType === '360_video'
+          ? 'video360Url'
+          : 'model3dUrl';
+
+    return {
+      [urlField]: result.url,
+      fileName: result.fileName,
+      publicId: result.publicId,
+      tourType: result.tourType,
+    };
+  }
+
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
   @ApiBearerAuth('JWT-auth')
   @ApiConsumes('multipart/form-data', 'application/json')
   @UseInterceptors(
-    FileFieldsInterceptor([
-      { name: 'tourFile', maxCount: 1 },
-      { name: 'audioFiles', maxCount: 20 },
-      { name: 'hotspotAudioFiles', maxCount: 20 },
-      { name: 'hotspotImageFiles', maxCount: 20 },
-      { name: 'hotspotVideoFiles', maxCount: 10 },
-      { name: 'effectSoundFiles', maxCount: 20 },
-    ]),
+    FileFieldsInterceptor(
+      [
+        { name: 'tourFile', maxCount: 1 },
+        { name: 'audioFiles', maxCount: 20 },
+        { name: 'hotspotAudioFiles', maxCount: 20 },
+        { name: 'hotspotImageFiles', maxCount: 20 },
+        { name: 'hotspotVideoFiles', maxCount: 10 },
+        { name: 'effectSoundFiles', maxCount: 20 },
+      ],
+      { limits: { fileSize: 500 * 1024 * 1024, files: 72 } },
+    ),
   )
   @ApiOperation({
     summary:
