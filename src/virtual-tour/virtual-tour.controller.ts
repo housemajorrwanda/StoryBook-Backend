@@ -312,6 +312,7 @@ export class VirtualTourController {
     @Body() body: Record<string, unknown>,
   ) {
     const userId = req.user.id as number;
+    const uploadedFiles: UploadedTourFiles = files ?? {};
 
     // Parse nested data from form
     const hotspots = this.parseJsonField(body.hotspots, 'hotspots');
@@ -321,26 +322,26 @@ export class VirtualTourController {
     const tourType = this.getStringField(body.tourType, 'tourType', true)!;
 
     // Process main tour file
-    await this.processMainTourFile(files, tourType, body);
+    await this.processMainTourFile(uploadedFiles, tourType, body);
 
     // Process audio region files
     const processedAudioRegions = await this.processAudioRegionFiles(
       audioRegions,
-      files.audioFiles,
+      uploadedFiles.audioFiles,
     );
 
     // Process hotspot files
     const processedHotspots = await this.processHotspotFiles(
       hotspots,
-      files.hotspotAudioFiles,
-      files.hotspotImageFiles,
-      files.hotspotVideoFiles,
+      uploadedFiles.hotspotAudioFiles,
+      uploadedFiles.hotspotImageFiles,
+      uploadedFiles.hotspotVideoFiles,
     );
 
     // Process effect files
     const processedEffects = await this.processEffectFiles(
       effects,
-      files.effectSoundFiles,
+      uploadedFiles.effectSoundFiles,
     );
 
     // Build the DTO
