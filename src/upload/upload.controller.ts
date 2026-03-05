@@ -1,11 +1,13 @@
 import {
   Controller,
   Post,
+  Get,
   UseInterceptors,
   UploadedFile,
   UploadedFiles,
   BadRequestException,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import {
@@ -14,7 +16,12 @@ import {
   ApiResponse,
   ApiConsumes,
   ApiBody,
+  ApiBearerAuth,
+  ApiQuery,
 } from '@nestjs/swagger';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { UploadService } from './upload.service';
 
 interface MultipleImagesUploadResponse {
@@ -222,5 +229,45 @@ export class UploadController {
       );
     }
     return this.uploadService.uploadVirtualTour(file, tourType);
+  }
+
+  @Get('signature')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: 'Get a signed upload token for direct-to-Cloudinary uploads',
+    description:
+      'Returns a short-lived signature so the browser can POST a file directly to Cloudinary without routing the binary through this server. Eliminates 524 timeout errors on large files.',
+  })
+  @ApiQuery({
+    name: 'tourType',
+    enum: ['360_image', '360_video', '3d_model'],
+    required: true,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Signed upload params',
+    schema: {
+      type: 'object',
+      properties: {
+        signature: { type: 'string' },
+        timestamp: { type: 'number' },
+        folder: { type: 'string' },
+        resourceType: { type: 'string' },
+        apiKey: { type: 'string' },
+        cloudName: { type: 'string' },
+      },
+    },
+  })
+  getUploadSignature(
+    @Query('tourType') tourType: '360_image' | '360_video' | '3d_model',
+  ) {
+    if (!['360_image', '360_video', '3d_model'].includes(tourType)) {
+      throw new BadRequestException(
+        'tourType must be one of: 360_image, 360_video, 3d_model',
+      );
+    }
+    return this.uploadService.generateUploadSignature(tourType);
   }
 }

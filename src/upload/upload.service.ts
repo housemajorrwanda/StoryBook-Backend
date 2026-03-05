@@ -446,4 +446,56 @@ export class UploadService {
       console.error('Error deleting file from Cloudinary:', error);
     }
   }
+
+  /**
+   * Generate a short-lived signed upload params so the browser can POST
+   * directly to Cloudinary — the file never passes through our server.
+   *
+   * tourType → folder + resource_type mapping:
+   *   360_image  → testimonies/virtual-tours/360   / image
+   *   360_video  → virtual-tours/360-video          / video
+   *   3d_model   → testimonies/virtual-tours/3d-models / raw
+   */
+  generateUploadSignature(tourType: '360_image' | '360_video' | '3d_model'): {
+    signature: string;
+    timestamp: number;
+    folder: string;
+    resourceType: string;
+    apiKey: string;
+    cloudName: string;
+  } {
+    const folderMap: Record<string, { folder: string; resourceType: string }> =
+      {
+        '360_image': {
+          folder: 'testimonies/virtual-tours/360',
+          resourceType: 'image',
+        },
+        '360_video': {
+          folder: 'virtual-tours/360-video',
+          resourceType: 'video',
+        },
+        '3d_model': {
+          folder: 'testimonies/virtual-tours/3d-models',
+          resourceType: 'raw',
+        },
+      };
+
+    const { folder, resourceType } = folderMap[tourType];
+    const timestamp = Math.round(Date.now() / 1000);
+
+    const paramsToSign = { folder, timestamp };
+    const signature = cloudinary.utils.api_sign_request(
+      paramsToSign,
+      cloudinary.config().api_secret as string,
+    );
+
+    return {
+      signature,
+      timestamp,
+      folder,
+      resourceType,
+      apiKey: cloudinary.config().api_key as string,
+      cloudName: cloudinary.config().cloud_name as string,
+    };
+  }
 }

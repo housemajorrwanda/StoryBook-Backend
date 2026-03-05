@@ -58,6 +58,57 @@ export class VirtualTourController {
     private readonly uploadService: UploadService,
   ) {}
 
+  @Get('upload-signature')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary:
+      'Get a signed upload token for direct-to-Cloudinary uploads (Admin only)',
+    description:
+      'Returns a short-lived Cloudinary signature. The browser uses this to POST the file directly to Cloudinary, bypassing this server entirely. This eliminates Cloudflare 524 timeouts on large 360° images, videos, and 3D models.',
+  })
+  @ApiQuery({
+    name: 'tourType',
+    enum: ['360_image', '360_video', '3d_model'],
+    required: true,
+    description: 'The type of tour file to be uploaded',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Signed upload params — valid for 60 minutes',
+    schema: {
+      type: 'object',
+      properties: {
+        signature: { type: 'string', description: 'HMAC-SHA256 signature' },
+        timestamp: {
+          type: 'number',
+          description: 'Unix timestamp used in the signature',
+        },
+        folder: {
+          type: 'string',
+          description: 'Cloudinary folder the file will land in',
+        },
+        resourceType: {
+          type: 'string',
+          description: 'image | video | raw',
+        },
+        apiKey: { type: 'string', description: 'Cloudinary API key' },
+        cloudName: { type: 'string', description: 'Cloudinary cloud name' },
+      },
+    },
+  })
+  getUploadSignature(
+    @Query('tourType') tourType: '360_image' | '360_video' | '3d_model',
+  ) {
+    if (!['360_image', '360_video', '3d_model'].includes(tourType)) {
+      throw new BadRequestException(
+        'tourType must be one of: 360_image, 360_video, 3d_model',
+      );
+    }
+    return this.uploadService.generateUploadSignature(tourType);
+  }
+
   @Post('upload-file')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')

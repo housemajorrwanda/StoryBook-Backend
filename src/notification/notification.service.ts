@@ -2,6 +2,8 @@ import {
   Injectable,
   InternalServerErrorException,
   NotFoundException,
+  forwardRef,
+  Inject,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import type { Notification } from '@prisma/client';
@@ -11,19 +13,39 @@ import {
 } from './notification.types';
 import { NotificationQueryDto } from './dto/notification-query.dto';
 import { generateTestimonyUrl } from '../common/utils/slug.util';
+import { NotificationGateway } from './notification.gateway';
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
 
 @Injectable()
 export class NotificationService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(forwardRef(() => NotificationGateway))
+    private readonly gateway: NotificationGateway,
+  ) {}
+
+  // ─── Unread count helpers ────────────────────────────────────────────────────
+
+  async getUnreadCount(audience: NotificationAudience, userId?: number) {
+    return this.prisma.notification.count({
+      where: {
+        audience,
+        status: 'unread',
+        ...(userId ? { userId } : {}),
+      },
+    });
+  }
+
+  // ─── Core create ─────────────────────────────────────────────────────────────
 
   async createNotification(
     input: CreateNotificationInput,
   ): Promise<Notification> {
+    let notification: Notification;
     try {
-      return await this.prisma.notification.create({
+      notification = await this.prisma.notification.create({
         data: {
           title: input.title,
           message: input.message,
@@ -41,6 +63,26 @@ export class NotificationService {
         'Unable to create notification entry',
       );
     }
+
+    // ── Real-time push ──────────────────────────────────────────────────────
+    const audience: NotificationAudience = input.audience ?? 'admin';
+
+    if (audience === 'admin') {
+      const unreadCount = await this.getUnreadCount('admin');
+      this.gateway.emitToAdmins(
+        notification as Record<string, unknown>,
+        unreadCount,
+      );
+    } else if (audience === 'user' && input.userId) {
+      const unreadCount = await this.getUnreadCount('user', input.userId);
+      this.gateway.emitToUser(
+        input.userId,
+        notification as Record<string, unknown>,
+        unreadCount,
+      );
+    }
+
+    return notification;
   }
 
   async createAdminNotification(
@@ -48,6 +90,8 @@ export class NotificationService {
   ): Promise<Notification> {
     return this.createNotification({ ...input, audience: 'admin' });
   }
+
+  // ─── Domain helpers ───────────────────────────────────────────────────────────
 
   async notifyTestimonySubmitted(params: {
     testimonyId: number;
@@ -190,6 +234,8 @@ export class NotificationService {
     }
   }
 
+  // ─── List / read ──────────────────────────────────────────────────────────────
+
   async listNotifications(query: NotificationQueryDto) {
     const skip = query.skip ?? 0;
     const requestedLimit = query.limit ?? DEFAULT_LIMIT;
@@ -220,7 +266,7 @@ export class NotificationService {
         : undefined),
     };
 
-    const [total, notifications] = await this.prisma.$transaction([
+    const [total, notifications, unreadCount] = await this.prisma.$transaction([
       this.prisma.notification.count({ where }),
       this.prisma.notification.findMany({
         where,
@@ -228,19 +274,24 @@ export class NotificationService {
         take: limit,
         orderBy: { createdAt: 'desc' },
       }),
+      this.prisma.notification.count({ where: { audience, status: 'unread' } }),
     ]);
 
     return {
       data: notifications,
       total,
+      unreadCount,
       skip,
       limit,
     };
   }
 
-  async markAsRead(id: number): Promise<Notification> {
+  async markAsRead(
+    id: number,
+  ): Promise<Notification & { unreadCount: number }> {
+    let notification: Notification;
     try {
-      return await this.prisma.notification.update({
+      notification = await this.prisma.notification.update({
         where: { id },
         data: {
           status: 'read',
@@ -256,14 +307,38 @@ export class NotificationService {
         'Unable to update notification status',
       );
     }
+
+    const audience = notification.audience as NotificationAudience;
+    const unreadCount = await this.getUnreadCount(
+      audience,
+      notification.userId ?? undefined,
+    );
+
+    // Push read event so all open tabs/devices of this user sync instantly
+    if (audience === 'admin') {
+      this.gateway.emitToAdmins(
+        notification as unknown as Record<string, unknown>,
+        unreadCount,
+      );
+      // Also emit the targeted read event for badge sync
+      // Admins share room:admin — emit all_read style update
+    } else if (notification.userId) {
+      this.gateway.emitReadUpdate(notification.userId, id, unreadCount);
+    }
+
+    return { ...notification, unreadCount };
   }
 
-  async markAllAsRead(audience: NotificationAudience = 'admin') {
+  async markAllAsRead(
+    audience: NotificationAudience = 'admin',
+    userId?: number,
+  ): Promise<{ updated: number; unreadCount: number }> {
     try {
       const result = await this.prisma.notification.updateMany({
         where: {
           audience,
           status: 'unread',
+          ...(userId ? { userId } : {}),
         },
         data: {
           status: 'read',
@@ -271,7 +346,16 @@ export class NotificationService {
         },
       });
 
-      return { updated: result.count };
+      const unreadCount = 0; // we just cleared them all
+
+      // Push real-time so badge resets immediately on all devices
+      if (audience === 'admin') {
+        this.gateway.emitAllReadToAdmins(unreadCount);
+      } else if (userId) {
+        this.gateway.emitAllReadToUser(userId, unreadCount);
+      }
+
+      return { updated: result.count, unreadCount };
     } catch (error) {
       console.error('Failed to mark notifications as read:', error);
       throw new InternalServerErrorException(

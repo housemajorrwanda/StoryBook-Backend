@@ -17,7 +17,7 @@ export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 export interface CreateNotificationInput {
   title: string;
   message?: string;
-  type: NotificationType | string;
+  type: string;
   audience?: NotificationAudience;
   priority?: NotificationPriority;
   metadata?: Record<string, unknown>;
