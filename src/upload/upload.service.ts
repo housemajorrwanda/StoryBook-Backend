@@ -321,11 +321,12 @@ export class UploadService {
         );
       }
 
-      // Validate file size (20MB for 360° images)
-      const maxSize = 20 * 1024 * 1024;
+      // Validate file size (50MB for 360° images)
+      const maxSize = 50 * 1024 * 1024;
       if (file.size > maxSize) {
+        const fileSizeMB = (file.size / (1024 * 1024)).toFixed(1);
         throw new BadRequestException(
-          'File size exceeds 20MB limit for 360° images',
+          `File size ${fileSizeMB}MB exceeds the 50MB limit for 360° images`,
         );
       }
 
