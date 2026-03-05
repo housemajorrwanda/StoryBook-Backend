@@ -45,6 +45,7 @@ export class EffectController {
     @Request() req,
     @Body() createEffectDto: CreateEffectDto,
   ) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     const userId = req.user.id as number;
     return this.virtualTourService.createEffect(
       virtualTourId,
@@ -91,6 +92,7 @@ export class EffectController {
     @Request() req,
     @Body() updateEffectDto: UpdateEffectDto,
   ) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     const userId = req.user.id as number;
     return this.virtualTourService.updateEffect(id, userId, updateEffectDto);
   }
@@ -110,6 +112,7 @@ export class EffectController {
     @Param('effectId', ParseIntPipe) id: number,
     @Request() req,
   ) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     const userId = req.user.id as number;
     return this.virtualTourService.deleteEffect(id, userId);
   }
@@ -129,6 +132,7 @@ export class EffectController {
     @Request() req,
     @Body() reorderDto: ReorderDto,
   ) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     const userId = req.user.id as number;
     return this.virtualTourService.reorderEffects(
       virtualTourId,
