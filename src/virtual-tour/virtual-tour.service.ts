@@ -63,7 +63,10 @@ export class VirtualTourService {
           throw new InternalServerErrorException('Database operation failed');
       }
     }
-    throw new InternalServerErrorException('An unexpected error occurred');
+    console.error('[VirtualTourService] Unexpected error:', error);
+    throw new InternalServerErrorException(
+      error?.message ?? 'An unexpected error occurred',
+    );
   }
 
   private validateTourUrls(
@@ -221,15 +224,15 @@ export class VirtualTourService {
             data: audioRegions.map((region, index) => ({
               virtualTourId: virtualTour.id,
               regionType: region.regionType ?? 'sphere',
-              centerX: region.centerX!,
-              centerY: region.centerY!,
-              centerZ: region.centerZ!,
+              centerX: region.centerX,
+              centerY: region.centerY,
+              centerZ: region.centerZ,
               radius: region.radius,
               width: region.width,
               height: region.height,
               depth: region.depth,
-              audioUrl: region.audioUrl!,
-              audioFileName: region.audioFileName!,
+              audioUrl: region.audioUrl,
+              audioFileName: region.audioFileName,
               volume: region.volume ?? 1.0,
               loop: region.loop ?? true,
               fadeInDuration: region.fadeInDuration,

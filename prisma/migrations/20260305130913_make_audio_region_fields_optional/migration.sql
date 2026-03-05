@@ -1,0 +1,6 @@
+-- AlterTable
+ALTER TABLE "virtual_tour_audio_regions" ALTER COLUMN "centerX" DROP NOT NULL,
+ALTER COLUMN "centerY" DROP NOT NULL,
+ALTER COLUMN "centerZ" DROP NOT NULL,
+ALTER COLUMN "audioUrl" DROP NOT NULL,
+ALTER COLUMN "audioFileName" DROP NOT NULL;

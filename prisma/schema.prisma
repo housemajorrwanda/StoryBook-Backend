@@ -479,9 +479,9 @@ model VirtualTourAudioRegion {
   regionType String @default("sphere") // sphere, box
 
   // Position
-  centerX Float
-  centerY Float
-  centerZ Float
+  centerX Float?
+  centerY Float?
+  centerZ Float?
 
   // Sphere parameters
   radius Float? // For sphere regions
@@ -492,8 +492,8 @@ model VirtualTourAudioRegion {
   depth  Float? // For box regions
 
   // Audio settings
-  audioUrl        String
-  audioFileName   String
+  audioUrl        String?
+  audioFileName   String?
   volume          Float   @default(1.0) // 0.0 to 1.0
   loop            Boolean @default(true)
   fadeInDuration  Float?  @default(2.0) // Seconds to fade in
