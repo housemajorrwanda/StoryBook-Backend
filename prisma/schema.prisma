@@ -40,6 +40,7 @@ model User {
   userProgress         UserProgress[]
   bookmarks            UserBookmark[]
   testimonyReports     TestimonyReport[]
+  familyTrees          FamilyTree[]
 
   @@map("users")
 }
@@ -111,6 +112,7 @@ model Testimony {
   images       TestimonyImage[]
   relatives    TestimonyRelative[]
   userProgress UserProgress[]
+  familyMembers FamilyMember[]
 
   // Consent
   agreedToTerms Boolean @default(false)
@@ -681,4 +683,78 @@ model UserProgress {
   @@index([contentType])
   @@index([isCompleted])
   @@map("user_progress")
+}
+
+// ========== Family Tree Models ==========
+
+model FamilyTree {
+  id          Int     @id @default(autoincrement())
+  title       String
+  description String? @db.Text
+  isPublic    Boolean @default(false)
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  members     FamilyMember[]
+  relations   FamilyRelation[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([isPublic])
+  @@map("family_trees")
+}
+
+model FamilyMember {
+  id           Int     @id @default(autoincrement())
+  familyTreeId Int
+  name         String
+  photoUrl     String?
+  birthDate    String? // stored as string for flexibility (e.g. "1952", "March 1952")
+  deathDate    String?
+  bio          String? @db.Text
+  gender       String? // male, female, other, unknown
+  isAlive      Boolean @default(true)
+
+  // Optional link to a testimony
+  testimonyId Int?
+  testimony   Testimony? @relation(fields: [testimonyId], references: [id], onDelete: SetNull)
+
+  familyTree FamilyTree @relation(fields: [familyTreeId], references: [id], onDelete: Cascade)
+
+  // Relations where this member is the "from" side
+  relationsFrom FamilyRelation[] @relation("relation_from")
+  // Relations where this member is the "to" side
+  relationsTo   FamilyRelation[] @relation("relation_to")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([familyTreeId])
+  @@index([testimonyId])
+  @@map("family_members")
+}
+
+// Directed relation: fromMemberId --[relationType]--> toMemberId
+// e.g. "John" --[parent]--> "Mary" means John is parent of Mary
+model FamilyRelation {
+  id             Int    @id @default(autoincrement())
+  familyTreeId   Int
+  fromMemberId   Int
+  toMemberId     Int
+  relationType   String // parent, spouse, sibling, child
+
+  familyTree FamilyTree   @relation(fields: [familyTreeId], references: [id], onDelete: Cascade)
+  fromMember FamilyMember @relation("relation_from", fields: [fromMemberId], references: [id], onDelete: Cascade)
+  toMember   FamilyMember @relation("relation_to", fields: [toMemberId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([fromMemberId, toMemberId, relationType])
+  @@index([familyTreeId])
+  @@index([fromMemberId])
+  @@index([toMemberId])
+  @@map("family_relations")
 }
