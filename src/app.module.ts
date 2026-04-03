@@ -15,6 +15,7 @@ import { NotificationModule } from './notification/notification.module';
 import { EducationModule } from './education/education.module';
 import { UserprogressModule } from './userprogress/userprogress.module';
 import { SimulationModule } from './simulation/simulation.module';
+import { FamilyTreeModule } from './family-tree/family-tree.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { SimulationModule } from './simulation/simulation.module';
     EducationModule,
     UserprogressModule,
     SimulationModule,
+    FamilyTreeModule,
   ],
   controllers: [AppController],
   providers: [
