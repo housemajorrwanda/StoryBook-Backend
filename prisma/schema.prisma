@@ -403,6 +403,10 @@ model VirtualTour {
   model3dUrl  String? // 3D model file URL (GLB/GLTF)
   fileName    String? // Original file name
 
+  // Background Audio
+  backgroundAudioUrl    String? // Optional ambient/background audio URL
+  backgroundAudioVolume Float   @default(0.5) // 0.0 to 1.0
+
   // Interactive Elements
   hotspots     VirtualTourHotspot[]
   audioRegions VirtualTourAudioRegion[]
