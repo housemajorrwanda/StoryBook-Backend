@@ -6,6 +6,9 @@ import {
   IsEnum,
   IsBoolean,
   IsUrl,
+  IsNumber,
+  Min,
+  Max,
   MinLength,
   MaxLength,
   ValidateIf,
@@ -132,4 +135,24 @@ export class CreateVirtualTourDto {
   @IsOptional()
   @IsBoolean()
   isPublished?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Background ambient audio URL (optional)',
+    example: 'https://example.com/audio/ambient.mp3',
+  })
+  @IsOptional()
+  @IsString()
+  backgroundAudioUrl?: string;
+
+  @ApiPropertyOptional({
+    description: 'Background audio volume (0.0 to 1.0)',
+    default: 0.5,
+    minimum: 0,
+    maximum: 1,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(1)
+  backgroundAudioVolume?: number;
 }
