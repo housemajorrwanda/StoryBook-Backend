@@ -715,12 +715,19 @@ model FamilyMember {
   id           Int     @id @default(autoincrement())
   familyTreeId Int
   name         String
-  photoUrl     String?
+  photoUrl     String?               // profile photo (first/primary)
+  photoUrls    String[]              // all photos; first element = profile
   birthDate    String? // stored as string for flexibility (e.g. "1952", "March 1952")
   deathDate    String?
   bio          String? @db.Text
   gender       String? // male, female, other, unknown
   isAlive      Boolean @default(true)
+
+  // Location (Rwanda administrative divisions)
+  district     String?
+  sector       String?
+  cell         String?
+  village      String?
 
   // Optional link to a testimony
   testimonyId Int?
