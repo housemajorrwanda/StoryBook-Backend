@@ -61,6 +61,17 @@ export class FamilyTreeController {
     return this.familyTreeService.getTreeById(id);
   }
 
+  @Get('members/search')
+  @ApiOperation({ summary: 'Search members by name across public trees (duplicate detection)' })
+  @ApiQuery({ name: 'name', required: true, type: String })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  searchMembers(
+    @Query('name') name: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.familyTreeService.searchMembersByName(name, limit ? parseInt(limit) : 10);
+  }
+
   // ── Authenticated ──────────────────────────────────────────────────────────
 
   @UseGuards(JwtAuthGuard)
