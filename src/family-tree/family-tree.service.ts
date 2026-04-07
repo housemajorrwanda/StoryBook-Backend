@@ -17,11 +17,16 @@ const MEMBER_SELECT = {
   id: true,
   name: true,
   photoUrl: true,
+  photoUrls: true,
   birthDate: true,
   deathDate: true,
   bio: true,
   gender: true,
   isAlive: true,
+  district: true,
+  sector: true,
+  cell: true,
+  village: true,
   testimonyId: true,
   createdAt: true,
   updatedAt: true,
@@ -207,6 +212,33 @@ export class FamilyTreeService {
       throw new NotFoundException('Relation not found');
     }
     await this.prisma.familyRelation.delete({ where: { id: relationId } });
+  }
+
+  // ── Duplicate detection ────────────────────────────────────────────────────
+
+  /** Search for members with similar name across public trees (dedup suggestion). */
+  async searchMembersByName(name: string, limit = 10) {
+    if (!name || name.trim().length < 2) return [];
+    return this.prisma.familyMember.findMany({
+      where: {
+        name: { contains: name.trim(), mode: 'insensitive' },
+        familyTree: { isPublic: true },
+      },
+      select: {
+        id: true,
+        name: true,
+        photoUrl: true,
+        birthDate: true,
+        gender: true,
+        district: true,
+        sector: true,
+        cell: true,
+        village: true,
+        familyTree: { select: { id: true, title: true, user: { select: { id: true, fullName: true } } } },
+      },
+      take: limit,
+      orderBy: { name: 'asc' },
+    });
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────
