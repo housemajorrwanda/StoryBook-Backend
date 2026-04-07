@@ -6,8 +6,11 @@ import {
   IsInt,
   IsPositive,
   IsIn,
+  IsArray,
+  IsUrl,
   MinLength,
   MaxLength,
+  ArrayMaxSize,
 } from 'class-validator';
 
 export class CreateFamilyTreeDto {
@@ -56,10 +59,17 @@ export class CreateFamilyMemberDto {
   @MaxLength(120)
   name: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'Profile photo URL (Cloudinary)' })
   @IsOptional()
   @IsString()
   photoUrl?: string;
+
+  @ApiPropertyOptional({ description: 'All photo URLs (up to 10); first = profile', type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsUrl({}, { each: true })
+  @ArrayMaxSize(10)
+  photoUrls?: string[];
 
   @ApiPropertyOptional({ example: '1952' })
   @IsOptional()
@@ -94,6 +104,31 @@ export class CreateFamilyMemberDto {
   @IsInt()
   @IsPositive()
   testimonyId?: number;
+
+  // Location
+  @ApiPropertyOptional({ example: 'Kigali' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  district?: string;
+
+  @ApiPropertyOptional({ example: 'Nyarugenge' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  sector?: string;
+
+  @ApiPropertyOptional({ example: 'Biryogo' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  cell?: string;
+
+  @ApiPropertyOptional({ example: 'Agaciro' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  village?: string;
 }
 
 export class UpdateFamilyMemberDto {
@@ -108,6 +143,13 @@ export class UpdateFamilyMemberDto {
   @IsOptional()
   @IsString()
   photoUrl?: string;
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsUrl({}, { each: true })
+  @ArrayMaxSize(10)
+  photoUrls?: string[];
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -142,6 +184,30 @@ export class UpdateFamilyMemberDto {
   @IsInt()
   @IsPositive()
   testimonyId?: number | null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  district?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  sector?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  cell?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  village?: string;
 }
 
 export class CreateFamilyRelationDto {
